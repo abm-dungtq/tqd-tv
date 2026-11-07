@@ -1,0 +1,11 @@
+# Android / Gradle build outputs
+.gradle/
+**/build/
+local.properties
+*.iml
+.idea/
+.DS_Store
+
+# Node / Wrangler temporary files
+node_modules/
+.wrangler/

@@ -1,0 +1,8 @@
+01-stockholm-bridge.jpg	📍 Cầu Vasabron, Stockholm, Thụy Điển
+02-stockholm-harbor.jpg	📍 Bến cảng Skeppsbron, Stockholm, Thụy Điển
+03-abisko-aurora.jpg	📍 Bắc Cực Quang Abisko, Lapland, Thụy Điển
+04-mount-fuji.jpg	📍 Núi Phú Sĩ mùa hoa anh đào, Nhật Bản
+05-halong-bay.jpg	📍 Vịnh Hạ Long, Quảng Ninh, Việt Nam
+06-swiss-alps.jpg	📍 Thung lũng Lauterbrunnen, Thụy Sĩ
+07-banff-moraine.jpg	📍 Hồ Moraine, Vườn quốc gia Banff, Canada
+08-dolomites-italy.jpg	📍 Vườn quốc gia Yosemite, California, Mỹ

@@ -1,0 +1,6 @@
+name = "mitv-cloud-remote"
+main = "worker.js"
+compatibility_date = "2024-11-01"
+routes = [
+  { pattern = "tv.tqd.me", custom_domain = true }
+]
