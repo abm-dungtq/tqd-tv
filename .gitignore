@@ -9,3 +9,9 @@ local.properties
 # Node / Wrangler temporary files
 node_modules/
 .wrangler/
+
+# Third-party binary APK cache (downloaded by scripts/install-movie-apks.sh)
+apks/*.apk
+apks/*.idsig
+
+

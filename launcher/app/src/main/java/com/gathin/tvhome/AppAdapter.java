@@ -10,15 +10,18 @@ import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.content.res.Resources;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Outline;
 import android.graphics.PixelFormat;
 import android.graphics.Rect;
+import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.provider.Settings;
 import android.util.DisplayMetrics;
+import java.io.InputStream;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -361,7 +364,7 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             }
             // The icon is only drawn (and sampled for the glow) when there is no banner, so a tile with a
             // banner skips loading and decoding it.
-            Drawable icon = banner == null ? ri.loadIcon(pm) : null;
+            Drawable icon = banner == null ? loadSafeIcon(pm, ri) : null;
             if (card != null) {
                 fresh.add(new Entry(Entry.CARD, label, component, banner, icon, card.caption, card.accent));
             } else {
@@ -412,19 +415,79 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     private Drawable loadBanner(PackageManager pm, ResolveInfo ri) {
         int id = ri.activityInfo.banner;
         if (id == 0) id = ri.activityInfo.applicationInfo.banner;
-        Drawable banner = null;
         if (id != 0) {
             try {
                 Resources resources = pm.getResourcesForApplication(ri.activityInfo.applicationInfo);
-                // Keep at least xhdpi detail rather than downsampling artwork before the focus zoom.
-                int density = Math.max(DisplayMetrics.DENSITY_XHIGH, ctx.getResources().getDisplayMetrics().densityDpi);
-                banner = resources.getDrawableForDensity(id, density, null);
-            } catch (PackageManager.NameNotFoundException | Resources.NotFoundException ignored) {
+                // Decode bitmap banners with bounded resolution (max 640x360) and no mdpi->xhdpi 2x inflation,
+                // preventing 67 MB OutOfMemoryError on 2752x1536 third-party APK banners.
+                BitmapFactory.Options bounds = new BitmapFactory.Options();
+                bounds.inJustDecodeBounds = true;
+                try (InputStream in = resources.openRawResource(id)) {
+                    BitmapFactory.decodeStream(in, null, bounds);
+                } catch (Exception ignored) {
+                }
+                if (bounds.outWidth > 0 && bounds.outHeight > 0) {
+                    if (!isBannerShaped(bounds.outWidth, bounds.outHeight)) return null;
+                    int sample = 1;
+                    while ((bounds.outWidth / sample) > 640 || (bounds.outHeight / sample) > 360) {
+                        sample *= 2;
+                    }
+                    BitmapFactory.Options opts = new BitmapFactory.Options();
+                    opts.inSampleSize = sample;
+                    opts.inScaled = false;
+                    opts.inPreferredConfig = Bitmap.Config.RGB_565;
+                    try (InputStream in = resources.openRawResource(id)) {
+                        Bitmap bmp = BitmapFactory.decodeStream(in, null, opts);
+                        if (bmp != null) {
+                            if (bmp.getWidth() > 640) {
+                                int targetH = Math.max(1, Math.round(bmp.getHeight() * (640f / bmp.getWidth())));
+                                Bitmap scaled = Bitmap.createScaledBitmap(bmp, 640, targetH, true);
+                                if (scaled != bmp) bmp.recycle();
+                                bmp = scaled;
+                            }
+                            return new BitmapDrawable(ctx.getResources(), bmp);
+                        }
+                    }
+                }
+                Drawable d = resources.getDrawable(id, null);
+                if (d != null && isBannerShaped(d.getIntrinsicWidth(), d.getIntrinsicHeight())) {
+                    return clampDrawable(d, 640, 360);
+                }
+                return null;
+            } catch (Throwable ignored) {
             }
         }
-        if (banner == null) banner = ri.activityInfo.loadBanner(pm);
-        // A square "banner" counts as none: the tile shows the app's icon and name instead of a blur.
-        return banner != null && isBannerShaped(banner.getIntrinsicWidth(), banner.getIntrinsicHeight()) ? banner : null;
+        try {
+            Drawable banner = ri.activityInfo.loadBanner(pm);
+            if (banner != null && isBannerShaped(banner.getIntrinsicWidth(), banner.getIntrinsicHeight())) {
+                return clampDrawable(banner, 640, 360);
+            }
+        } catch (Throwable ignored) {
+        }
+        return null;
+    }
+
+    private Drawable loadSafeIcon(PackageManager pm, ResolveInfo ri) {
+        try {
+            Drawable icon = ri.loadIcon(pm);
+            return clampDrawable(icon, 192, 192);
+        } catch (Throwable ignored) {
+            return ctx.getDrawable(R.drawable.ic_apps);
+        }
+    }
+
+    private Drawable clampDrawable(Drawable d, int maxW, int maxH) {
+        if (d instanceof BitmapDrawable) {
+            Bitmap bmp = ((BitmapDrawable) d).getBitmap();
+            if (bmp != null && (bmp.getWidth() > maxW || bmp.getHeight() > maxH)) {
+                float ratio = Math.min((float) maxW / bmp.getWidth(), (float) maxH / bmp.getHeight());
+                int w = Math.max(1, Math.round(bmp.getWidth() * ratio));
+                int h = Math.max(1, Math.round(bmp.getHeight() * ratio));
+                Bitmap scaled = Bitmap.createScaledBitmap(bmp, w, h, true);
+                return new BitmapDrawable(ctx.getResources(), scaled);
+            }
+        }
+        return d;
     }
 
     /**

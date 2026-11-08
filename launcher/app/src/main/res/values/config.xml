@@ -18,10 +18,10 @@
     <!-- Apps pinned to the dock row at the bottom, in this order. Missing apps are skipped. -->
     <string-array name="dock_apps">
         <item>org.smarttube.stable</item>
-        <item>vn.vtv.vtvgotv</item>
-        <item>kodi.tungbui.movies</item>
-        <item>org.courville.nova</item>
-        <item>cm.aptoidetv.pt</item>
+        <item>com.oxootv.spagreen</item>
+        <item>com.nvc.nvcphim</item>
+        <item>com.nvc.movieapp</item>
+        <item>vn.rapnha.tv</item>
     </string-array>
     <!-- With fewer dock_apps than columns (or a dock app that is not installed), the free dock slots take
          the first grid apps, so the dock never shows a gap. false leaves them empty (#162); a theme can
@@ -95,6 +95,18 @@
     <!-- A tile's name instead of the app's own: "package=Name". It also shows above the dock. -->
     <string-array name="app_labels">
         <item>org.smarttube.stable=SmartTube</item>
+        <item>com.oxootv.spagreen=Phim 4K Ultra HD</item>
+        <item>com.nvc.nvcphim=NVC Phim</item>
+        <item>com.nvc.movieapp=NVC Movie</item>
+        <item>vn.rapnha.tv=Rạp Nhà</item>
+        <item>com.chophim.tv=Chợ Phim</item>
+        <item>com.film4k.tv=Film4K.Net</item>
+        <item>com.rapphim.tv=Rạp Phim</item>
+        <item>com.mvotv=Sài Gòn Phim</item>
+        <item>com.tv.rophimm=Rổ Phim Cô Be</item>
+        <item>com.vxm.movies=Ximao Film</item>
+        <item>com.nvcstore=NVC Store</item>
+        <item>com.vxm.store=Việt Xiaomi Store</item>
         <item>vn.vtv.vtvgotv=VTV Go</item>
         <item>kodi.tungbui.movies=MKodi Phim</item>
         <item>org.courville.nova=Nova Player</item>

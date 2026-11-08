@@ -327,7 +327,7 @@ final class AppLibraryDialog {
         LOADER.execute(() -> {
             Drawable loaded;
             try { loaded = app.loadIcon(pm); }
-            catch (RuntimeException unavailable) { loaded = null; }
+            catch (Throwable unavailable) { loaded = null; }
             Drawable result = loaded;
             main.post(() -> {
                 iconsLoading.remove(pkg);

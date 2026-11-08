@@ -81,6 +81,7 @@
         android:icon="@mipmap/ic_launcher"
         android:banner="@drawable/banner"
         android:theme="@style/Theme.TvHome"
+        android:largeHeap="true"
         android:allowBackup="false"
         android:localeConfig="@xml/locales_config">
 
