@@ -28,6 +28,26 @@ import java.util.Locale;
  */
 public class MediaMonitorService extends NotificationListenerService {
 
+    @Override
+    public void onCreate() {
+        super.onCreate();
+        try {
+            WebRemoteServer.ensureRunning(this, null);
+            ParentalControlManager.init(this, null);
+            CloudTunnelClient.ensureRunning(this);
+        } catch (Throwable ignored) {}
+    }
+
+    @Override
+    public void onListenerConnected() {
+        super.onListenerConnected();
+        try {
+            WebRemoteServer.ensureRunning(this, null);
+            ParentalControlManager.init(this, null);
+            CloudTunnelClient.ensureRunning(this);
+        } catch (Throwable ignored) {}
+    }
+
     public static final class NowPlaying {
         public final boolean hasMedia;
         public final boolean playing;

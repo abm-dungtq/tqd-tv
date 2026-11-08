@@ -120,6 +120,10 @@ public final class WebRemoteServer {
 
     private WebRemoteServer() {}
 
+    public static boolean hasAccessibilityService() {
+        return a11yRef.get() != null;
+    }
+
     public static void ensureRunning(Context context, AccessibilityService service) {
         if (context != null) {
             appContext = context.getApplicationContext();
@@ -391,18 +395,19 @@ public final class WebRemoteServer {
         return map;
     }
 
+    private static volatile int lastUnmutedVolume = 18;
+
     private static boolean isMusicMuted(AudioManager am) {
         if (am == null) return false;
         try {
+            if (am.getStreamVolume(AudioManager.STREAM_MUSIC) == 0) {
+                return true;
+            }
             if (Build.VERSION.SDK_INT >= 23) {
                 return am.isStreamMute(AudioManager.STREAM_MUSIC);
             }
         } catch (Throwable ignored) {}
-        try {
-            return am.getStreamVolume(AudioManager.STREAM_MUSIC) == 0;
-        } catch (Throwable ignored) {
-            return false;
-        }
+        return false;
     }
 
     private static volatile String lastCleanSummary = "";
@@ -995,10 +1000,37 @@ public final class WebRemoteServer {
             AudioManager am = (AudioManager) appContext.getSystemService(Context.AUDIO_SERVICE);
             if (am != null) {
                 int max = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
+                int before = am.getStreamVolume(AudioManager.STREAM_MUSIC);
                 int clamped = Math.max(0, Math.min(max, target));
+                if (before > 0 && clamped == 0) {
+                    lastUnmutedVolume = before;
+                } else if (clamped > 0) {
+                    lastUnmutedVolume = clamped;
+                    try {
+                        am.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_UNMUTE, 0);
+                    } catch (Throwable ignored) {}
+                }
                 am.setStreamVolume(AudioManager.STREAM_MUSIC, clamped, AudioManager.FLAG_SHOW_UI);
+                if (clamped == 0) {
+                    try {
+                        am.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_MUTE, 0);
+                    } catch (Throwable ignored) {}
+                }
                 int cur = am.getStreamVolume(AudioManager.STREAM_MUSIC);
+                if (cur == before && clamped != before) {
+                    String stepKey = clamped > before ? "volumeup" : "volumedown";
+                    int steps = Math.min(8, Math.abs(clamped - before));
+                    for (int i = 0; i < steps; i++) {
+                        if (!sendXiaomiKeyEvent(stepKey)) {
+                            ensureXiaomiRemoteServiceRunning(appContext);
+                            sendXiaomiKeyEvent(stepKey);
+                        }
+                    }
+                    try { Thread.sleep(45L); } catch (Throwable ignored) {}
+                    cur = am.getStreamVolume(AudioManager.STREAM_MUSIC);
+                }
                 boolean muted = isMusicMuted(am);
+                CloudTunnelClient.publishStateSoon();
                 return String.format(Locale.US, "{\"ok\":true,\"vol\":%d,\"max\":%d,\"muted\":%b}", cur, max, muted);
             }
         } catch (Throwable ignored) {}
@@ -1012,19 +1044,97 @@ public final class WebRemoteServer {
         String c = code.trim().toLowerCase(Locale.ROOT);
         Context ctx = appContext;
 
-        // 1. Volume & Mute via Android AudioManager (instant + shows native TV volume HUD)
-        if ("volup".equals(c) || "voldown".equals(c) || "mute".equals(c)) {
+        // 1. Volume & Mute via Xiaomi hardware EventInjector + Android AudioManager (supports Mi Soundbar bt_a2dp)
+        if ("volup5".equals(c) || "voldown5".equals(c)) {
             if (ctx != null) {
                 try {
                     AudioManager am = (AudioManager) ctx.getSystemService(Context.AUDIO_SERVICE);
                     if (am != null) {
-                        int dir = "volup".equals(c) ? AudioManager.ADJUST_RAISE
-                                : "voldown".equals(c) ? AudioManager.ADJUST_LOWER
-                                : AudioManager.ADJUST_TOGGLE_MUTE;
-                        am.adjustStreamVolume(AudioManager.STREAM_MUSIC, dir, AudioManager.FLAG_SHOW_UI);
-                        int vol = am.getStreamVolume(AudioManager.STREAM_MUSIC);
+                        int cur = am.getStreamVolume(AudioManager.STREAM_MUSIC);
                         int max = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
+                        int delta = "volup5".equals(c) ? 5 : -5;
+                        int next = Math.max(0, Math.min(max, cur + delta));
+                        return handleVolume(String.valueOf(next));
+                    }
+                } catch (Throwable ignored) {}
+            }
+        }
+        if ("volup".equals(c) || "voldown".equals(c)) {
+            if (ctx != null) {
+                try {
+                    AudioManager am = (AudioManager) ctx.getSystemService(Context.AUDIO_SERVICE);
+                    if (am != null) {
+                        int before = am.getStreamVolume(AudioManager.STREAM_MUSIC);
+                        int max = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
+                        if ("volup".equals(c) && isMusicMuted(am)) {
+                            try {
+                                am.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_UNMUTE, 0);
+                            } catch (Throwable ignored) {}
+                        }
+                        String miVolKey = "volup".equals(c) ? "volumeup" : "volumedown";
+                        boolean miSent = sendXiaomiKeyEvent(miVolKey);
+                        if (!miSent) {
+                            ensureXiaomiRemoteServiceRunning(ctx);
+                            miSent = sendXiaomiKeyEvent(miVolKey);
+                        }
+                        if (miSent) {
+                            try { Thread.sleep(45L); } catch (Throwable ignored) {}
+                        }
+                        int after = am.getStreamVolume(AudioManager.STREAM_MUSIC);
+                        int target = Math.max(0, Math.min(max, before + ("volup".equals(c) ? 1 : -1)));
+                        if (after == before && target != before) {
+                            try {
+                                am.adjustStreamVolume(AudioManager.STREAM_MUSIC,
+                                        "volup".equals(c) ? AudioManager.ADJUST_RAISE : AudioManager.ADJUST_LOWER,
+                                        AudioManager.FLAG_SHOW_UI);
+                            } catch (Throwable ignored) {}
+                            after = am.getStreamVolume(AudioManager.STREAM_MUSIC);
+                            if (after == before) {
+                                try {
+                                    am.setStreamVolume(AudioManager.STREAM_MUSIC, target, AudioManager.FLAG_SHOW_UI);
+                                } catch (Throwable ignored) {}
+                                after = am.getStreamVolume(AudioManager.STREAM_MUSIC);
+                            }
+                        }
+                        if (after > 0) {
+                            lastUnmutedVolume = after;
+                        }
                         boolean muted = isMusicMuted(am);
+                        CloudTunnelClient.publishStateSoon();
+                        return String.format(Locale.US, "{\"ok\":true,\"vol\":%d,\"max\":%d,\"muted\":%b}", after, max, muted);
+                    }
+                } catch (Throwable ignored) {}
+            }
+        }
+        if ("mute".equals(c)) {
+            if (ctx != null) {
+                try {
+                    AudioManager am = (AudioManager) ctx.getSystemService(Context.AUDIO_SERVICE);
+                    if (am != null) {
+                        int cur = am.getStreamVolume(AudioManager.STREAM_MUSIC);
+                        int max = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
+                        boolean currentlyMuted = isMusicMuted(am);
+                        if (!currentlyMuted && cur > 0) {
+                            lastUnmutedVolume = cur;
+                            try {
+                                am.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_MUTE, AudioManager.FLAG_SHOW_UI);
+                            } catch (Throwable ignored) {}
+                            try {
+                                am.setStreamVolume(AudioManager.STREAM_MUSIC, 0, AudioManager.FLAG_SHOW_UI);
+                            } catch (Throwable ignored) {}
+                        } else {
+                            int restore = (lastUnmutedVolume > 0 && lastUnmutedVolume <= max)
+                                    ? lastUnmutedVolume : Math.min(max, 18);
+                            try {
+                                am.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_UNMUTE, 0);
+                            } catch (Throwable ignored) {}
+                            try {
+                                am.setStreamVolume(AudioManager.STREAM_MUSIC, restore, AudioManager.FLAG_SHOW_UI);
+                            } catch (Throwable ignored) {}
+                        }
+                        int vol = am.getStreamVolume(AudioManager.STREAM_MUSIC);
+                        boolean muted = isMusicMuted(am);
+                        CloudTunnelClient.publishStateSoon();
                         return String.format(Locale.US, "{\"ok\":true,\"vol\":%d,\"max\":%d,\"muted\":%b}", vol, max, muted);
                     }
                 } catch (Throwable ignored) {}
@@ -1929,12 +2039,33 @@ public final class WebRemoteServer {
                 + ".d-ok:active{background:var(--accent);color:#fff;transform:scale(0.94);}\n"
                 + ".touchpad{display:none;width:100%;height:210px;border-radius:18px;background:radial-gradient(circle,#1e2436 0%,#131722 100%);border:1.5px dashed rgba(255,255,255,0.16);align-items:center;justify-content:center;flex-direction:column;color:var(--sub);font-size:13px;gap:6px;touch-action:none;}\n"
                 + ".row-btns{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;}\n"
+                + ".nav-foot{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-top:12px;padding-top:12px;border-top:1px dashed rgba(255,255,255,0.1);}\n"
+                + ".vol-card{border-color:rgba(56,189,248,0.34);background:linear-gradient(180deg,rgba(22,31,48,0.92),rgba(17,22,35,0.92));}\n"
+                + ".vol-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;}\n"
+                + ".vol-badge{font-size:12px;font-weight:800;padding:4px 11px;border-radius:999px;background:rgba(59,130,246,0.2);color:#93c5fd;border:1px solid rgba(59,130,246,0.45);font-family:ui-monospace,SFMono-Regular,Menlo,monospace;}\n"
+                + ".vol-badge.muted{background:rgba(239,68,68,0.22);color:#fca5a5;border-color:rgba(239,68,68,0.5);}\n"
+                + ".vol-rocker{display:grid;grid-template-columns:0.85fr 1.3fr 1.15fr 1.3fr 0.85fr;gap:7px;}\n"
+                + ".v-btn{background:rgba(30,38,58,0.92);border:1px solid rgba(255,255,255,0.12);color:var(--text);padding:11px 4px;border-radius:15px;font-size:12px;font-weight:800;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;touch-action:none;}\n"
+                + ".v-btn span{font-size:17px;line-height:1;}\n"
+                + ".v-btn.main{background:linear-gradient(145deg,rgba(37,99,235,0.28),rgba(30,58,138,0.34));border-color:rgba(96,165,250,0.45);color:#eff6ff;font-size:13px;padding:12px 6px;}\n"
+                + ".v-btn.step{background:rgba(15,23,42,0.85);color:#cbd5e1;font-size:11.5px;}\n"
+                + ".v-btn.mute{background:rgba(239,68,68,0.14);border-color:rgba(239,68,68,0.36);color:#fecaca;}\n"
+                + ".v-btn.mute.active{background:linear-gradient(135deg,#ef4444,#dc2626);border-color:#f87171;color:#fff;box-shadow:0 0 14px rgba(239,68,68,0.45);}\n"
+                + ".v-btn:active{transform:scale(0.94);border-color:#60a5fa;background:rgba(59,130,246,0.35);}\n"
+                + ".vol-slider-row{display:flex;align-items:center;gap:10px;margin-top:12px;padding:2px 2px;}\n"
+                + ".vol-ico{font-size:16px;cursor:pointer;padding:4px;border-radius:8px;}\n"
+                + ".vol-ico:active{transform:scale(0.9);}\n"
+                + ".vol-slider{-webkit-appearance:none;appearance:none;flex:1;height:10px;border-radius:999px;background:linear-gradient(90deg,#3b82f6 0%,#38bdf8 var(--vol-pct,36%),rgba(255,255,255,0.12) var(--vol-pct,36%));outline:none;cursor:pointer;}\n"
+                + ".vol-slider::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:24px;height:24px;border-radius:50%;background:#fff;border:3px solid #3b82f6;box-shadow:0 2px 10px rgba(0,0,0,0.5);}\n"
+                + ".vol-presets{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-top:10px;}\n"
+                + ".vp-chip{background:rgba(15,23,42,0.78);border:1px solid var(--border);color:#cbd5e1;padding:7px 4px;border-radius:10px;font-size:11px;font-weight:700;text-align:center;cursor:pointer;white-space:nowrap;}\n"
+                + ".vp-chip.active{background:rgba(59,130,246,0.26);border-color:#60a5fa;color:#fff;}\n"
+                + ".vp-chip:active{transform:scale(0.95);}\n"
+                + ".media-divider{margin-top:11px;padding-top:10px;border-top:1px dashed rgba(255,255,255,0.1);}\n"
                 + ".media-btns{display:grid;grid-template-columns:repeat(5,1fr);gap:7px;}\n"
-                + ".r-btn{background:rgba(30,36,52,0.9);border:1px solid var(--border);color:var(--text);padding:11px 6px;border-radius:15px;font-size:12px;font-weight:700;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;touch-action:none;}\n"
-                + ".r-btn span{font-size:16px;}\n"
+                + ".r-btn{background:rgba(30,36,52,0.9);border:1px solid var(--border);color:var(--text);padding:10px 5px;border-radius:14px;font-size:11.5px;font-weight:700;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;touch-action:none;}\n"
+                + ".r-btn span{font-size:15px;}\n"
                 + ".r-btn:active{transform:scale(0.94);background:rgba(59,130,246,0.25);border-color:var(--accent);}\n"
-                + ".vol-slider-row{display:flex;align-items:center;gap:10px;margin-top:10px;padding:4px 2px 0;}\n"
-                + ".vol-slider{flex:1;accent-color:var(--accent);height:6px;}\n"
                 + ".sec-title{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.8px;color:var(--sub);margin:0 0 9px 2px;}\n"
                 + ".apps-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}\n"
                 + ".app-btn{background:rgba(20,24,35,0.85);border:1px solid var(--border);color:var(--text);padding:11px 6px;border-radius:13px;font-size:12px;font-weight:600;text-align:center;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}\n"
@@ -1970,7 +2101,7 @@ public final class WebRemoteServer {
                 + "  </div>\n"
                 + "</div>\n"
                 + "<div class=\"sub-bar\">\n"
-                + "  <div id=\"volPill\" class=\"status-pill\">Âm lượng: --</div>\n"
+                + "  <div id=\"volPill\" class=\"status-pill\" onclick=\"toggleMute()\" style=\"cursor:pointer\">🔊 Âm lượng: --</div>\n"
                 + "  <div id=\"weatherPill\" class=\"status-pill\">🌤 Hà Nội</div>\n"
                 + "  <div id=\"adbPill\" class=\"status-pill ok\" onclick=\"enableAdbNow()\" style=\"cursor:pointer\">🟢 ADB: Luôn bật</div>\n"
                 + "</div>\n"
@@ -2003,32 +2134,45 @@ public final class WebRemoteServer {
                 + "    <div style=\"font-size:22px\">👆</div>\n"
                 + "    <div>Vuốt 1 ngón để di chuyển · Chạm nhẹ để chọn OK</div>\n"
                 + "  </div>\n"
+                + "  <div class=\"nav-foot\">\n"
+                + "    <button class=\"r-btn\" onclick=\"key('back')\"><span>↩</span>Quay lại</button>\n"
+                + "    <button class=\"r-btn\" onclick=\"key('home')\"><span>⌂</span>Trang chủ</button>\n"
+                + "    <button class=\"r-btn\" onclick=\"key('menu')\"><span>☰</span>Menu</button>\n"
+                + "  </div>\n"
                 + "</div>\n"
                 + "\n"
-                + "<div class=\"row-btns\">\n"
-                + "  <button class=\"r-btn\" onclick=\"key('back')\"><span>↩</span>Quay lại</button>\n"
-                + "  <button class=\"r-btn\" onclick=\"key('home')\"><span>⌂</span>Trang chủ</button>\n"
-                + "  <button class=\"r-btn\" onclick=\"key('menu')\"><span>☰</span>Menu</button>\n"
-                + "</div>\n"
-                + "<div class=\"row-btns\">\n"
-                + "  <button id=\"btnVolDown\" class=\"r-btn\" onclick=\"tapKey('voldown')\"><span>🔉</span>Giảm âm</button>\n"
-                + "  <button class=\"r-btn\" onclick=\"key('mute')\"><span>🔇</span>Tắt tiếng</button>\n"
-                + "  <button id=\"btnVolUp\" class=\"r-btn\" onclick=\"tapKey('volup')\"><span>🔊</span>Tăng âm</button>\n"
-                + "</div>\n"
-                + "\n"
-                + "<div class=\"card\">\n"
-                + "  <div class=\"sec-title\">Điều khiển Phát Media & Thanh trượt Âm lượng</div>\n"
-                + "  <div class=\"media-btns\">\n"
-                + "    <button class=\"r-btn\" onclick=\"key('prev')\"><span>⏮</span>Trước</button>\n"
-                + "    <button class=\"r-btn\" onclick=\"key('rew')\"><span>⏪</span>Tua lùi</button>\n"
-                + "    <button class=\"r-btn\" onclick=\"key('playpause')\"><span>⏯</span>Phát/Dừng</button>\n"
-                + "    <button class=\"r-btn\" onclick=\"key('ff')\"><span>⏩</span>Tua tới</button>\n"
-                + "    <button class=\"r-btn\" onclick=\"key('next')\"><span>⏭</span>Tiếp</button>\n"
+                + "<div class=\"card vol-card\">\n"
+                + "  <div class=\"vol-head\">\n"
+                + "    <div class=\"sec-title\" style=\"margin:0;color:#93c5fd\">🔊 Âm Lượng & Điều Khiển Phát</div>\n"
+                + "    <div id=\"volBadge\" class=\"vol-badge\">🔊 18 / 50 (36%)</div>\n"
+                + "  </div>\n"
+                + "  <div class=\"vol-rocker\">\n"
+                + "    <button class=\"v-btn step\" onclick=\"stepVol(-5)\"><span>🔉</span>-5</button>\n"
+                + "    <button id=\"btnVolDown\" class=\"v-btn main\" onclick=\"tapKey('voldown')\"><span>➖</span>Giảm</button>\n"
+                + "    <button id=\"btnMute\" class=\"v-btn mute\" onclick=\"toggleMute()\"><span id=\"muteIcon\">🔇</span><b id=\"muteTxt\" style=\"font-weight:800\">Tắt tiếng</b></button>\n"
+                + "    <button id=\"btnVolUp\" class=\"v-btn main\" onclick=\"tapKey('volup')\"><span>➕</span>Tăng</button>\n"
+                + "    <button class=\"v-btn step\" onclick=\"stepVol(5)\"><span>🔊</span>+5</button>\n"
                 + "  </div>\n"
                 + "  <div class=\"vol-slider-row\">\n"
-                + "    <span style=\"font-size:13px;color:var(--sub)\">🔈</span>\n"
-                + "    <input id=\"volSlider\" class=\"vol-slider\" type=\"range\" min=\"0\" max=\"50\" value=\"16\" onchange=\"setVol(this.value)\">\n"
-                + "    <span style=\"font-size:13px;color:var(--sub)\">🔊</span>\n"
+                + "    <span class=\"vol-ico\" onclick=\"setVol(0)\" title=\"Về 0\">🔈</span>\n"
+                + "    <input id=\"volSlider\" class=\"vol-slider\" type=\"range\" min=\"0\" max=\"50\" value=\"18\" oninput=\"previewVol(this.value)\" onchange=\"commitVol(this.value)\">\n"
+                + "    <span class=\"vol-ico\" onclick=\"stepVol(5)\" title=\"Tăng thêm\">🔊</span>\n"
+                + "  </div>\n"
+                + "  <div id=\"volPresets\" class=\"vol-presets\">\n"
+                + "    <button class=\"vp-chip\" data-vol=\"0\" onclick=\"setVol(0)\">🔇 0</button>\n"
+                + "    <button class=\"vp-chip\" data-vol=\"8\" onclick=\"setVol(8)\">🔈 8 · Đêm</button>\n"
+                + "    <button class=\"vp-chip\" data-vol=\"16\" onclick=\"setVol(16)\">🔉 16 · Vừa</button>\n"
+                + "    <button class=\"vp-chip\" data-vol=\"25\" onclick=\"setVol(25)\">🔊 25 · Rõ</button>\n"
+                + "    <button class=\"vp-chip\" data-vol=\"35\" onclick=\"setVol(35)\">📢 35 · To</button>\n"
+                + "  </div>\n"
+                + "  <div class=\"media-divider\">\n"
+                + "    <div class=\"media-btns\">\n"
+                + "      <button class=\"r-btn\" onclick=\"key('prev')\"><span>⏮</span>Trước</button>\n"
+                + "      <button class=\"r-btn\" onclick=\"key('rew')\"><span>⏪</span>Tua lùi</button>\n"
+                + "      <button class=\"r-btn\" onclick=\"key('playpause')\"><span>⏯</span>Phát/Dừng</button>\n"
+                + "      <button class=\"r-btn\" onclick=\"key('ff')\"><span>⏩</span>Tua tới</button>\n"
+                + "      <button class=\"r-btn\" onclick=\"key('next')\"><span>⏭</span>Tiếp</button>\n"
+                + "    </div>\n"
                 + "  </div>\n"
                 + "</div>\n"
                 + "\n"
@@ -2284,15 +2428,47 @@ public final class WebRemoteServer {
                 + "  else{dot.className='dot off';title.textContent='Mi TV 4A (Đang kết nối...)';}\n"
                 + "}\n"
                 + "\n"
-                + "function syncStatusUi(j){\n"
+                + "let curVol=18,curMax=50,curMuted=false,lastLocalUnmuted=18,volLockUntil=0,volSlideTimer=null;\n"
+                + "function renderVolUi(v,m,muted){\n"
+                + "  if(typeof m==='number'&&m>0)curMax=m;\n"
+                + "  if(typeof v==='number'&&v>=0)curVol=Math.max(0,Math.min(curMax,v));\n"
+                + "  if(typeof muted==='boolean')curMuted=muted;\n"
+                + "  if(curVol===0)curMuted=true;\n"
+                + "  else if(curVol>0)lastLocalUnmuted=curVol;\n"
+                + "  const pct=curMax>0?Math.round((curVol*100)/curMax):0;\n"
+                + "  const slider=document.getElementById('volSlider');\n"
+                + "  if(slider){\n"
+                + "    slider.max=curMax;\n"
+                + "    slider.value=curVol;\n"
+                + "    slider.style.setProperty('--vol-pct',pct+'%');\n"
+                + "  }\n"
+                + "  const pill=document.getElementById('volPill');\n"
+                + "  const badge=document.getElementById('volBadge');\n"
+                + "  const btnMute=document.getElementById('btnMute');\n"
+                + "  const muteIcon=document.getElementById('muteIcon');\n"
+                + "  const muteTxt=document.getElementById('muteTxt');\n"
+                + "  if(curMuted||curVol===0){\n"
+                + "    if(pill){pill.textContent='🔇 Đã tắt tiếng (0/'+curMax+')';pill.className='status-pill muted';}\n"
+                + "    if(badge){badge.textContent='🔇 TẮT TIẾNG • 0/'+curMax;badge.className='vol-badge muted';}\n"
+                + "    if(btnMute)btnMute.className='v-btn mute active';\n"
+                + "    if(muteIcon)muteIcon.textContent='🔊';\n"
+                + "    if(muteTxt)muteTxt.textContent='Bật tiếng';\n"
+                + "  }else{\n"
+                + "    if(pill){pill.textContent='🔊 Âm lượng: '+curVol+'/'+curMax;pill.className='status-pill';}\n"
+                + "    if(badge){badge.textContent='🔊 '+curVol+' / '+curMax+' ('+pct+'%)';badge.className='vol-badge';}\n"
+                + "    if(btnMute)btnMute.className='v-btn mute';\n"
+                + "    if(muteIcon)muteIcon.textContent='🔇';\n"
+                + "    if(muteTxt)muteTxt.textContent='Tắt tiếng';\n"
+                + "  }\n"
+                + "  document.querySelectorAll('#volPresets .vp-chip').forEach(ch=>{\n"
+                + "    const cv=parseInt(ch.getAttribute('data-vol'),10);\n"
+                + "    ch.className='vp-chip'+((!curMuted&&cv===curVol)||(curMuted&&cv===0)?' active':'');\n"
+                + "  });\n"
+                + "}\n"
+                + "function syncStatusUi(j,forceVol){\n"
                 + "  if(!j)return;\n"
-                + "  if(typeof j.vol==='number'&&j.vol>=0){\n"
-                + "    const pill=document.getElementById('volPill');\n"
-                + "    const slider=document.getElementById('volSlider');\n"
-                + "    if(j.max>0)slider.max=j.max;\n"
-                + "    slider.value=j.vol;\n"
-                + "    if(j.muted){pill.textContent='🔇 Đã tắt tiếng ('+j.vol+'/'+j.max+')';pill.className='status-pill muted';}\n"
-                + "    else{pill.textContent='🔊 Âm lượng: '+j.vol+'/'+j.max;pill.className='status-pill';}\n"
+                + "  if(typeof j.vol==='number'&&j.vol>=0&&(forceVol||Date.now()>volLockUntil)){\n"
+                + "    renderVolUi(j.vol,j.max||50,!!j.muted);\n"
                 + "  }\n"
                 + "  if(j.weather){\n"
                 + "    document.getElementById('weatherPill').textContent='🌤 '+j.weather;\n"
@@ -2550,17 +2726,63 @@ public final class WebRemoteServer {
                 + "}\n"
                 + "async function key(c){\n"
                 + "  hap(13);\n"
+                + "  if(c==='volup'||c==='voldown'){\n"
+                + "    volLockUntil=Date.now()+2400;\n"
+                + "    const next=Math.max(0,Math.min(curMax,(curMuted?0:curVol)+(c==='volup'?1:-1)));\n"
+                + "    renderVolUi(next,curMax,next===0);\n"
+                + "  }\n"
                 + "  if(lanReachable){\n"
-                + "    try{const r=await apiFetch('/api/key?code='+encodeURIComponent(c));const j=await r.json();syncStatusUi(j);return;}catch(e){}\n"
+                + "    try{const r=await apiFetch('/api/key?code='+encodeURIComponent(c));const j=await r.json();syncStatusUi(j,true);return;}catch(e){}\n"
                 + "  }\n"
                 + "  sendCloudCmd({type:'key',code:c});\n"
                 + "}\n"
-                + "async function setVol(v){\n"
-                + "  hap(10);\n"
-                + "  if(lanReachable){\n"
-                + "    try{const r=await apiFetch('/api/volume?level='+encodeURIComponent(v));const j=await r.json();syncStatusUi(j);return;}catch(e){}\n"
+                + "function toggleMute(){\n"
+                + "  hap(18);\n"
+                + "  volLockUntil=Date.now()+2600;\n"
+                + "  if(!curMuted&&curVol>0){\n"
+                + "    lastLocalUnmuted=curVol;\n"
+                + "    renderVolUi(0,curMax,true);\n"
+                + "    showToast('🔇 Đã tắt tiếng Tivi');\n"
+                + "  }else{\n"
+                + "    const restore=lastLocalUnmuted>0?lastLocalUnmuted:18;\n"
+                + "    renderVolUi(restore,curMax,false);\n"
+                + "    showToast('🔊 Đã bật tiếng: '+restore+'/'+curMax);\n"
                 + "  }\n"
-                + "  sendCloudCmd({type:'volume',level:parseInt(v,10)||15});\n"
+                + "  if(lanReachable){\n"
+                + "    apiFetch('/api/key?code=mute').then(r=>r.json()).then(j=>syncStatusUi(j,true)).catch(()=>sendCloudCmd({type:'key',code:'mute'}));\n"
+                + "  }else{\n"
+                + "    sendCloudCmd({type:'key',code:'mute'});\n"
+                + "  }\n"
+                + "}\n"
+                + "function stepVol(delta){\n"
+                + "  const base=curMuted?0:curVol;\n"
+                + "  const next=Math.max(0,Math.min(curMax,base+delta));\n"
+                + "  setVol(next);\n"
+                + "}\n"
+                + "function previewVol(v){\n"
+                + "  const lv=Math.max(0,Math.min(curMax,parseInt(v,10)||0));\n"
+                + "  volLockUntil=Date.now()+2800;\n"
+                + "  renderVolUi(lv,curMax,lv===0);\n"
+                + "  if(volSlideTimer)clearTimeout(volSlideTimer);\n"
+                + "  volSlideTimer=setTimeout(()=>{sendVolNow(lv,false);},200);\n"
+                + "}\n"
+                + "function commitVol(v){\n"
+                + "  if(volSlideTimer){clearTimeout(volSlideTimer);volSlideTimer=null;}\n"
+                + "  setVol(v);\n"
+                + "}\n"
+                + "async function sendVolNow(lv,toast){\n"
+                + "  if(toast)showToast(lv===0?'🔇 Đã tắt tiếng (0/'+curMax+')':'🔊 Đã đặt âm lượng: '+lv+'/'+curMax);\n"
+                + "  if(lanReachable){\n"
+                + "    try{const r=await apiFetch('/api/volume?level='+lv);const j=await r.json();syncStatusUi(j,true);return;}catch(e){}\n"
+                + "  }\n"
+                + "  sendCloudCmd({type:'volume',level:lv});\n"
+                + "}\n"
+                + "async function setVol(v){\n"
+                + "  hap(14);\n"
+                + "  const lv=Math.max(0,Math.min(curMax,parseInt(v,10)||0));\n"
+                + "  volLockUntil=Date.now()+2600;\n"
+                + "  renderVolUi(lv,curMax,lv===0);\n"
+                + "  await sendVolNow(lv,true);\n"
                 + "}\n"
                 + "function app(pkg){\n"
                 + "  hap(20);\n"

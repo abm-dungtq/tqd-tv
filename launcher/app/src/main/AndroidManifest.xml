@@ -9,6 +9,7 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     <!-- Android 6 PatchWall does not send window events. The Home helper reads usage stats to see when it
          is in front. Granted with appops, the same way WRITE_SECURE_SETTINGS is granted with pm grant. -->
     <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS"
@@ -77,6 +78,7 @@
     </queries>
 
     <application
+        android:name=".TvHomeApp"
         android:label="@string/app_name"
         android:icon="@mipmap/ic_launcher"
         android:banner="@drawable/banner"
