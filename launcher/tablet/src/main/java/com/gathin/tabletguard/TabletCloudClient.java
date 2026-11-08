@@ -219,6 +219,8 @@ public final class TabletCloudClient {
                 if (newPin.length() >= 4) {
                     TabletControlManager.setPin(appContext, newPin);
                 }
+            } else if ("adb".equals(type)) {
+                TabletControlManager.ensureAdbAlwaysOn(appContext);
             } else if ("schedule".equals(type)) {
                 TabletControlManager.setSchedule(
                         obj.optBoolean("enabled", false),

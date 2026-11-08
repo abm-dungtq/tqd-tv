@@ -91,10 +91,24 @@ public final class TabletControlManager {
             a11yRef = new WeakReference<>(service);
         }
         if (appContext == null) return;
+        ensureAdbAlwaysOn(appContext);
         TabletMonitorService.ensureEnabled(appContext);
         if (!initialized) {
             initialized = true;
             mainHandler.postDelayed(tickRunnable, 1000L);
+        }
+    }
+
+    public static boolean ensureAdbAlwaysOn(Context ctx) {
+        if (ctx == null) return false;
+        try {
+            int cur = Settings.Global.getInt(ctx.getContentResolver(), Settings.Global.ADB_ENABLED, 0);
+            if (cur != 1) {
+                Settings.Global.putInt(ctx.getContentResolver(), Settings.Global.ADB_ENABLED, 1);
+            }
+            return Settings.Global.getInt(ctx.getContentResolver(), Settings.Global.ADB_ENABLED, 0) == 1;
+        } catch (Throwable ignored) {
+            return false;
         }
     }
 
@@ -176,14 +190,22 @@ public final class TabletControlManager {
         SharedPreferences sp = prefs();
         if (sp == null) return;
         Set<String> set = getBlockedApps();
-        if (blocked) {
-            set.add(pkg);
+        if ("*".equals(pkg.trim()) && !blocked) {
+            set.clear();
         } else {
-            set.remove(pkg);
+            for (String p : pkg.split(",")) {
+                String clean = p != null ? p.trim() : "";
+                if (clean.isEmpty()) continue;
+                if (blocked) {
+                    set.add(clean);
+                } else {
+                    set.remove(clean);
+                }
+            }
         }
         sp.edit().putStringSet(KEY_BLOCKED_APPS, set).apply();
-        if (blocked && pkg.equals(lastKnownFgPkg)) {
-            enforceAppOrDeviceLockIfNeeded(pkg);
+        if (blocked && set.contains(lastKnownFgPkg)) {
+            enforceAppOrDeviceLockIfNeeded(lastKnownFgPkg);
         }
         TabletCloudClient.publishStateSoon();
     }
