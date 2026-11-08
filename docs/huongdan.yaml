@@ -1,0 +1,223 @@
+version: 1
+meta:
+  title: "TQD KidGuard · Hướng dẫn sử dụng & Cài đặt cho mọi dòng Tivi, Máy tính bảng"
+  description: "Tài liệu hướng dẫn phụ huynh sử dụng hệ thống quản lý con trực tuyến TQD KidGuard (tv.tqd.me) và giải pháp cài đặt APK trên Android TV (Sony, TCL, Xiaomi), Máy tính bảng Android cùng phương án cho Tivi Samsung, LG."
+  locale: vi
+theme:
+  preset: warm-signal
+blocks:
+  - id: hero-top
+    type: hero
+    eyebrow: "TQD KIDGUARD · CỔNG QUẢN LÝ THIẾT BỊ TRỰC TUYẾN CHO BỐ MẸ"
+    title: "Hướng dẫn sử dụng & cài đặt trên mọi dòng Tivi, Máy tính bảng"
+    description: "Quản lý thời gian xem Tivi và Máy tính bảng của con từ xa qua điện thoại tại `https://tv.tqd.me`: biết ngay con đang mở ứng dụng gì, gửi lời nhắn yêu thương lên màn hình, hẹn giờ đếm ngược tự khóa bằng mã PIN và chặn từng trò chơi."
+    align: start
+
+  - id: quick-cta
+    type: cta
+    eyebrow: "TRUY CẬP NHANH & TẢI GÓI CÀI ĐẶT APK"
+    title: "Kết nối thiết bị của con chỉ với Mã 6 Chữ Số"
+    text: "Mở bảng điều khiển dành cho phụ huynh trên điện thoại hoặc tải trực tiếp ứng dụng bảo vệ cho Android TV và Máy tính bảng Android. Trên Tivi Sony/TCL dùng ứng dụng Downloader, bạn có thể nhập đường dẫn ngắn `https://tv.tqd.me/apk`."
+    actions:
+      - label: "🚀 Mở Bảng Quản Lý (tv.tqd.me)"
+        href: "https://tv.tqd.me"
+        variant: primary
+      - label: "🛡️ Tải TQD KidGuard (45 KB · Đa năng)"
+        href: "https://tv.tqd.me/download/guard.apk"
+        variant: secondary
+      - label: "📺 Tải TQD TV Launcher (3.8 MB · TV Home)"
+        href: "https://tv.tqd.me/download/tv-launcher.apk"
+        variant: secondary
+
+  - id: top-stats
+    type: stats
+    title: "Thông số vận hành hệ thống"
+    items:
+      - label: "Dung lượng gói TQD KidGuard chạy ngầm"
+        value: "45 KB"
+      - label: "Cơ chế đồng bộ tự động không cần cấu hình IP"
+        value: "Mã 6 Số"
+      - label: "Cấp quyền bảo vệ một lần duy nhất trên máy con"
+        value: "3 Quyền"
+      - label: "Hoạt động qua cả Wi-Fi nhà lẫn 4G/5G từ xa"
+        value: "24/7 Cloud"
+
+  - id: sec-quick-start
+    type: section
+    title: "Phần 1. Bắt đầu nhanh trong 3 bước"
+    blocks:
+      - id: quick-steps
+        type: steps
+        title: "Quy trình thiết lập chuẩn cho Bố Mẹ"
+        items:
+          - title: "Bước 1: Tạo tài khoản quản lý của Bố/Mẹ trên điện thoại"
+            text: "Mở trình duyệt Safari (iPhone) hoặc Chrome (Android) và truy cập `https://tv.tqd.me`. Chuyển sang thẻ `✨ Đăng Ký Tài Khoản`, điền tên đăng nhập, mật khẩu, tên hiển thị của Bố/Mẹ (ví dụ `Ba Dũng`, `Mẹ Lan`) và mã PIN mở khóa màn hình mặc định (từ 4 đến 6 chữ số, gợi ý `1601`)."
+          - title: "Bước 2: Cài đặt ứng dụng TQD KidGuard lên Tivi hoặc Máy tính bảng của con"
+            text: "Tải gói `TQD-KidGuard.apk` tại `https://tv.tqd.me/download/guard.apk` (hoặc đường dẫn rút gọn `https://tv.tqd.me/apk`) và cài lên thiết bị của con. Ngay khi mở ứng dụng, màn hình sẽ tự động kết nối máy chủ và hiển thị một dãy Mã Ghép Nối 6 Chữ Số màu vàng cỡ lớn (ví dụ `208 864`)."
+          - title: "Bước 3: Nhập mã 6 số trên điện thoại và bật 3 quyền bảo vệ một lần duy nhất"
+            text: "Trên `https://tv.tqd.me`, bấm nút `➕ Nhập Mã 6 Số`, nhập 6 chữ số đang hiển thị trên máy của con và bấm `🚀 Đồng Bộ & Kết Nối Thiết Bị`. Tiếp theo, ngay trên màn hình ứng dụng của con, bấm lần lượt 3 nút `B1` (Quyền đọc ứng dụng đang chạy), `B2` (Quyền hiển thị khóa trên cùng) và `B3` (Dịch vụ Trợ năng kiểm soát) cho đến khi cả 3 dòng đều hiện dấu tích xanh `✓`, rồi bấm `✅ Đóng & Chạy Ngầm Bảo Vệ`."
+
+      - id: pwa-tip
+        type: callout
+        tone: info
+        title: "Mẹo dùng nhanh như ứng dụng gốc trên điện thoại của Bố Mẹ"
+        text: "Trên iPhone (Safari), bấm nút Chia sẻ ở cạnh dưới trình duyệt rồi chọn `Thêm vào MH chính (Add to Home Screen)`. Trên điện thoại Android (Chrome), bấm biểu tượng 3 chấm ở góc trên phải rồi chọn `Thêm vào màn hình chính`. Biểu tượng TQD KidGuard sẽ xuất hiện ngay ngoài màn hình điện thoại để bố mẹ mở nhanh trong một chạm."
+
+      - id: apk-matrix
+        type: feature-matrix
+        title: "So sánh 2 gói cài đặt APK trên hệ thống"
+        plans:
+          - "TQD KidGuard (45 KB)"
+          - "TQD TV Launcher (3.8 MB)"
+        rows:
+          - feature: "Chạy ngầm bảo vệ, giữ nguyên giao diện gốc của máy"
+            values: [true, false]
+          - feature: "Tự sinh Mã ghép nối 6 chữ số đồng bộ Cloud tự động"
+            values: [true, true]
+          - feature: "Theo dõi thời gian thực con đang mở ứng dụng / video gì"
+            values: [true, true]
+          - feature: "Chặn lẻ từng ứng dụng hoặc khóa nhanh toàn bộ Game & TikTok"
+            values: [true, true]
+          - feature: "Gửi lời nhắn 14 giây, hẹn giờ đếm ngược & khóa PIN từ xa"
+            values: [true, true]
+          - feature: "Thay màn hình Home TV bằng thanh 5 biểu tượng lớn & 9 hình nền Thế giới"
+            values: [false, true]
+          - feature: "Tích hợp bàn điều hướng D-Pad, chuột cảm ứng & chỉnh âm lượng TV"
+            values: [false, true]
+          - feature: "Thiết bị khuyên dùng"
+            values: ["Máy tính bảng & mọi Android/Google TV", "Android TV / Android Box chuyên dụng"]
+
+  - id: sec-dashboard
+    type: section
+    title: "Phần 2. Hướng dẫn sử dụng bảng điều khiển dành cho Bố Mẹ"
+    blocks:
+      - id: dashboard-bento
+        type: bento
+        title: "Các tính năng cốt lõi trên https://tv.tqd.me"
+        items:
+          - eyebrow: "THEO DÕI THỜI GIAN THỰC"
+            title: "Biết chính xác con đang xem YouTube hay chơi Game gì"
+            value: "Live 24/7"
+            size: wide
+            text: "Thẻ `👧 Con Đang Xem / Dùng Gì` cập nhật trực tiếp tên phần mềm đang mở ở tiền cảnh, tiêu đề video và thời lượng đã xem. Ở chế độ Máy tính bảng, bố mẹ có sẵn 3 nút phản ứng nhanh ngay dưới tên ứng dụng: `🏠 Đóng App` (đưa máy về màn hình chính ngay lập tức), `🚫 Chặn App Này` và `🔓 Mở Khóa Máy`."
+          - eyebrow: "KIỂM SOÁT ỨNG DỤNG"
+            title: "Chặn từng App hoặc khóa toàn bộ Game & TikTok"
+            value: "Chặn tức thì"
+            size: small
+            text: "Chạm vào nút `🟢 Cho Phép` cạnh tên ứng dụng (Roblox, Block Blast, YouTube...) để chuyển sang `🚫 Đang Khóa`. Nếu con bấm vào ứng dụng đã bị khóa, máy lập tức đưa về màn hình chính."
+          - eyebrow: "BẢO MẬT MÃ PIN"
+            title: "Đổi mã PIN mở khóa từ xa"
+            value: "4–6 số"
+            size: small
+            text: "Khi con biết mã PIN cũ, bố mẹ bấm `🔑 Đổi PIN` trên đầu trang web hoặc nhập mã mới ở cuối thẻ Hẹn giờ. Mã PIN mới được đồng bộ tức thời xuống cả Tivi lẫn Máy tính bảng."
+          - eyebrow: "NHẮC NHỞ & HẸN GIỜ KỶ LUẬT"
+            title: "Gửi lời nhắn yêu thương lên màn hình & hẹn giờ đếm ngược tự khóa"
+            value: "3p – 30p"
+            size: wide
+            text: "Chọn mẫu câu có sẵn (`Hết tập/ván này nghỉ nhé`, `Đến giờ ăn cơm / tắm`, `Đến giờ đi ngủ rồi`) hoặc tự gõ lời nhắn riêng để hiển thị nổi bật lên màn hình của con trong 14 giây kèm âm báo nhẹ. Bấm các mốc `3p`, `5p`, `10p`, `15p`, `30p` để máy đếm ngược 60 giây cuối trước khi khóa PIN, hoặc bật `🌙 Tự khóa giờ ngủ` từ `21:30` đến `06:30`."
+
+  - id: sec-tv-install
+    type: section
+    title: "Phần 3. Phương án cài đặt APK cho các dòng Tivi khó (Sony, TCL, Samsung, LG...)"
+    blocks:
+      - id: tv-brand-tabs
+        type: tabs
+        title: "Chọn dòng thiết bị của gia đình bạn để xem hướng dẫn chi tiết"
+        items:
+          - id: tab-sony-tcl
+            title: "📺 Tivi Sony, TCL, Xiaomi, Casper (Android / Google TV)"
+            blocks:
+              - type: callout
+                tone: warning
+                title: "Giải quyết 3 rào cản mặc định trên Tivi Sony Bravia & TCL đời mới"
+                text: "Tất cả các dòng Tivi chạy Android TV hoặc Google TV (Sony, TCL, Xiaomi, Casper, Coocaa, Philips, Aqua) đều cài được trực tiếp `TQD KidGuard`. Tuy nhiên, Sony và TCL thường ẩn mục cài đặt file `.apk`, không có sẵn trình duyệt web và bật sẵn Google Play Protect chặn ứng dụng khóa màn hình. Bố mẹ chỉ cần thực hiện đúng 2 bước dưới đây."
+              - type: steps
+                title: "Bước A: Mở khóa quyền cài đặt và tắt chặn Play Protect trên Tivi Sony / TCL"
+                items:
+                  - title: "1. Bật Tùy chọn nhà phát triển để hiện mục Nguồn không xác định"
+                    text: "Trên Tivi, mở `Cài đặt (Settings)` -> `Hệ thống (System)` -> `Giới thiệu (About)` (hoặc `Tùy chọn thiết bị -> Giới thiệu`). Kéo xuống dòng cuối cùng `Bản dựng hệ điều hành Android TV (Android TV OS build)` và bấm phím `OK` trên điều khiển liên tiếp 7 lần cho đến khi hiện thông báo `Bạn đã là nhà phát triển`."
+                  - title: "2. Tắt cảnh báo chặn của Google Play Protect"
+                    text: "Mở ứng dụng `Google Play Store (CH Play)` trên Tivi -> di chuyển lên góc trên bên phải chọn `Ảnh đại diện tài khoản` -> chọn `Play Protect` -> chọn biểu tượng `Cài đặt (bánh răng)` và gạt Tắt mục `Quét ứng dụng bằng Play Protect`. (Nếu không tắt trước, khi cài APK hiện bảng cảnh báo đỏ thì bấm vào `Chi tiết khác / More details` -> chọn `Vẫn cài đặt / Install anyway`)."
+                  - title: "3. Mở khóa 'Cài đặt bị hạn chế' trên Android 13 / 14 khi bật Trợ năng (B3)"
+                    text: "Nếu Tivi TCL/Sony chạy Android 13 hoặc 14 báo `Cài đặt bị hạn chế (Restricted settings)` khi bấm nút `B3`, hãy vào `Cài đặt Tivi -> Ứng dụng -> Xem tất cả ứng dụng -> TQD KidGuard`, kéo xuống cuối chọn `Cho phép cài đặt bị hạn chế (Allow restricted settings)`, sau đó quay lại ứng dụng bấm `B3` là bật được ngay."
+              - type: card-grid
+                title: "Bước B: Chọn 1 trong 3 cách đưa file APK vào Tivi Sony / TCL"
+                items:
+                  - title: "Cách 1 (Khuyên dùng): Tải trực tiếp bằng ứng dụng Downloader"
+                    text: "Mở Google Play Store trên Tivi Sony/TCL, tìm và cài ứng dụng miễn phí `Downloader by AFTVnews` (biểu tượng màu cam). Mở Downloader, nhập đường dẫn ngắn `https://tv.tqd.me/apk` (hoặc `https://tv.tqd.me/download/guard.apk`) rồi bấm Go. Cấp quyền cài đặt cho Downloader và bấm Install."
+                  - title: "Cách 2: Bắn file APK từ Điện thoại sang Tivi qua Send Files to TV"
+                    text: "Mở `https://tv.tqd.me` trên điện thoại, bấm `📥 Tải App` để tải file `TQD-KidGuard.apk` về máy. Cài ứng dụng `Send Files to TV` trên cả điện thoại và CH Play của Tivi Sony/TCL. Trên Tivi chọn `Receive (Nhận)`, trên điện thoại chọn `Send (Gửi)` -> chọn file `TQD-KidGuard.apk` để truyền qua Wi-Fi."
+                  - title: "Cách 3: Cài đặt qua cổng USB bằng ứng dụng File Manager+"
+                    text: "Chép file `TQD-KidGuard.apk` vào USB rồi cắm vào cổng USB mặt bên của Tivi Sony/TCL. Mở Google Play Store trên Tivi tải ứng dụng `File Manager+` (biểu tượng thư mục màu vàng), vào mục `USB`, bấm vào file `TQD-KidGuard.apk` và chọn Cài đặt."
+
+          - id: tab-samsung-lg
+            title: "🛰️ Tivi Samsung (Tizen OS) & LG (webOS)"
+            blocks:
+              - type: callout
+                tone: danger
+                title: "Lưu ý quan trọng: Tivi Samsung và LG không chạy hệ điều hành Android"
+                text: "Tivi Samsung chạy hệ điều hành độc quyền `Tizen OS` (chỉ nhận gói `.tpk` / `.wgt`) và Tivi LG chạy `webOS` (chỉ nhận gói `.ipk`). Vì không chạy hệ điều hành Android, bản thân Tivi Samsung và LG không thể cài đặt trực tiếp bất kỳ file `.apk` nào. Để quản lý con trên Tivi Samsung/LG, bố mẹ áp dụng 1 trong 2 phương án thực tế dưới đây."
+              - type: comparison
+                title: "Hai phương án quản lý con trên Tivi Samsung & LG"
+                left:
+                  label: "Phương án 1 (Khuyên dùng · Dùng đủ 100% tính năng TQD KidGuard)"
+                  items:
+                    - "Gắn thêm 1 đầu thu Android TV Box hoặc Google TV Stick vào cổng HDMI 1 của Tivi Samsung/LG (Xiaomi TV Box S, Mi TV Stick, Onn Google TV 4K, FPT Play Box, ViettelTV Box...)"
+                    - "Cài đặt TQD KidGuard lên Android Box và ghép nối Mã 6 Số với tài khoản bố mẹ trên https://tv.tqd.me"
+                    - "Trên Tivi Samsung: vào Cài đặt -> Tổng quát -> Tính năng thông minh -> Tắt 'Tự chạy Smart Hub' và Bật 'Tự chạy nguồn cuối (Autorun Last Input)' để mỗi khi bật Tivi là vào thẳng màn hình Android Box"
+                    - "Trên Tivi LG: vào Cài đặt -> Cài đặt chung -> Hệ thống -> Cài đặt bổ sung -> Cài đặt màn hình chính -> Tắt 'Khởi chạy tự động Trang chủ'"
+                    - "Khóa ứng dụng YouTube / Trình duyệt gốc trên Tizen OS bằng mã PIN của Tivi Samsung và cất điều khiển gốc của Tivi (chỉ để lại điều khiển của Android Box cho con dùng)"
+                right:
+                  label: "Phương án 2 (Tạm thời khi chưa có Android Box · Khóa nội bộ trên Tivi)"
+                  items:
+                    - "Trên Tivi Samsung (Tizen OS): Vào Cài đặt -> Tổng quát -> Trình quản lý hệ thống -> Thay đổi mã PIN (đổi từ 0000 sang mã riêng của bố mẹ)"
+                    - "Mở Smart Hub -> Apps -> chọn biểu tượng Cài đặt (bánh răng góc trên phải) -> chọn ứng dụng YouTube, Netflix, Trình duyệt web -> bấm Khóa (Lock) bằng mã PIN"
+                    - "Trên Tivi LG (webOS): Vào Cài đặt -> Cài đặt chung -> Hệ thống -> An toàn (Safety) -> Bật chế độ An toàn -> chọn Khóa ứng dụng (Application Locks)"
+                    - "Hạn chế: Chỉ khóa cứng bằng PIN trên Tivi, không xem được thời gian thực con đang coi gì từ xa và không gửi được lời nhắn hay hẹn giờ đếm ngược từ điện thoại"
+
+          - id: tab-tablet
+            title: "📱 Máy tính bảng & Điện thoại Android"
+            blocks:
+              - type: steps
+                title: "Cài đặt trong 2 phút trên Máy tính bảng của con (Samsung Tab, Xiaomi Pad, Lenovo, Amazon Fire HD...)"
+                items:
+                  - title: "1. Tải trực tiếp gói TQD KidGuard (45 KB)"
+                    text: "Mở trình duyệt Chrome hoặc Silk trên máy tính bảng của con, truy cập `https://tv.tqd.me/apk` (hoặc vào `https://tv.tqd.me` bấm nút `📥 Tải App`) và mở file `TQD-KidGuard.apk` vừa tải để cài đặt."
+                  - title: "2. Ghép nối Mã 6 Số với điện thoại Bố Mẹ"
+                    text: "Mở ứng dụng `TQD KidGuard` trên máy tính bảng để lấy Mã Ghép Nối 6 Chữ Số hiển thị giữa màn hình, sau đó nhập mã này vào mục `➕ Nhập Mã 6 Số` trên điện thoại của bố mẹ."
+                  - title: "3. Bật đủ 3 nút quyền B1, B2, B3 và cho chạy ngầm"
+                    text: "Bấm lần lượt `B1` (Đọc ứng dụng đang chạy), `B2` (Hiển thị khóa trên cùng) và `B3` (Dịch vụ Trợ năng kiểm soát) cho đến khi cả 3 dòng đều hiện dấu tích xanh `✓`, sau đó bấm `✅ Đóng & Chạy Ngầm Bảo Vệ`."
+
+  - id: sec-faq
+    type: section
+    title: "Phần 4. Danh sách kiểm tra & Xử lý nhanh tình huống thường gặp (FAQ)"
+    blocks:
+      - id: setup-checklist
+        type: checklist
+        title: "Danh sách kiểm tra hoàn tất cài đặt trên thiết bị của con"
+        items:
+          - text: "Đã đăng ký tài khoản Bố/Mẹ và đăng nhập tại https://tv.tqd.me trên điện thoại"
+            done: true
+          - text: "Đã nhập Mã ghép nối 6 chữ số và thấy thiết bị xuất hiện trên khung chuyển đổi Tivi / MTB"
+            done: true
+          - text: "Dòng B1 trên ứng dụng TQD KidGuard đã hiện dấu tích xanh (✓ Đã cấp quyền đọc ứng dụng đang mở)"
+            done: true
+          - text: "Dòng B2 trên ứng dụng TQD KidGuard đã hiện dấu tích xanh (✓ Đã cấp quyền hiển thị màn hình khóa PIN)"
+            done: true
+          - text: "Dòng B3 trên ứng dụng TQD KidGuard đã hiện dấu tích xanh (✓ Đã bật Dịch vụ Trợ năng tự động đóng ứng dụng bị chặn)"
+            done: true
+
+      - id: faq-accordion
+        type: accordion
+        title: "Giải đáp 5 tình huống thường gặp trong quá trình sử dụng"
+        items:
+          - title: "1. Nhập mã 6 số trên web báo 'Không tìm thấy thiết bị'?"
+            text: "Nguyên nhân là Tivi hoặc Máy tính bảng của con chưa kết nối Wi-Fi khi mở ứng dụng lần đầu. Hãy kiểm tra kết nối Wi-Fi trên máy của con, mở lại ứng dụng `TQD KidGuard` để dòng trạng thái dưới mã 6 số hiện chữ `● Đã kết nối máy chủ Cloud`, sau đó bấm ghép nối lại trên điện thoại của bố mẹ."
+          - title: "2. Đã khóa ứng dụng trên web nhưng con bấm vào trên Máy tính bảng vẫn mở được?"
+            text: "Nguyên nhân là quyền Dịch vụ Trợ năng (`B3`) trên Máy tính bảng chưa được bật hoặc bị hệ thống thu hồi. Hãy mở ứng dụng `TQD KidGuard` trên Máy tính bảng và kiểm tra dòng `B3`: nếu đang màu cam thì bấm vào nút `B3` để gạt bật lại `TQD KidGuard` trong phần Trợ năng."
+          - title: "3. Trên web không thấy hiện tên ứng dụng con đang mở?"
+            text: "Nguyên nhân là chưa cấp Quyền Đọc Ứng Dụng Đang Chạy (`B1`) trên thiết bị. Hãy mở ứng dụng `TQD KidGuard` trên máy của con, bấm nút `B1` và gạt bật quyền truy cập dữ liệu sử dụng (`Usage Access`) cho ứng dụng."
+          - title: "4. Quên mã PIN mở khóa màn hình khi thiết bị đang bị khóa?"
+            text: "Mở `https://tv.tqd.me` trên điện thoại của bố mẹ -> bấm thẳng nút `🔓 Mở Khóa` màu xanh lá để mở máy ngay lập tức mà không cần nhập PIN trên màn hình của con, hoặc bấm `🔑 Đổi PIN` trên đầu trang web để đặt lại mã PIN mới."
+          - title: "5. Làm sao chuyển giao diện Tivi từ chế độ đầy đủ sang chế độ gọn gàng (chỉ kiểm soát & khóa)?"
+            text: "Trên `https://tv.tqd.me`, bấm nút `⚙️ Thiết bị` ở góc trên phải -> tại mục `Giao diện quản lý trên Web`, chọn chế độ `🛡️ Gọn gàng: Chỉ Kiểm Soát App + Chặn + Hẹn Giờ + Khóa PIN` rồi bấm `💾 Lưu Thay Đổi`."
