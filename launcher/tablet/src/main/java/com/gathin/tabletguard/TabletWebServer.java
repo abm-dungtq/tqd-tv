@@ -56,8 +56,11 @@ public final class TabletWebServer {
 
     private static final List<String> PRIORITY_APPS = Arrays.asList(
             "com.google.android.youtube",
+            "com.google.android.youtube.tv",
             "org.smarttube.stable",
+            "com.teamsmart.videomanager.tv",
             "com.google.android.apps.youtube.kids",
+            "com.google.android.youtube.tvkids",
             "com.zhiliaoapp.musically",
             "com.ss.android.ugc.trill",
             "com.roblox.client.vnggames",
@@ -65,12 +68,17 @@ public final class TabletWebServer {
             "com.blockblast.vn",
             "com.maxgames.stickwarlegacy",
             "com.maxgames.stickwar3",
+            "vn.vtv.vtvgotv",
+            "vn.vtv.vtvgo",
+            "com.fplay.activity",
+            "vn.vieon.gluetv",
+            "com.netflix.ninja",
+            "com.netflix.mediaclient",
             "org.telegram.messenger",
             "com.duolingo",
             "com.google.android.apps.bard",
             "com.amazon.cloud9",
             "com.android.chrome",
-            "com.netflix.mediaclient",
             "com.zing.zalo",
             "com.facebook.katana"
     );
@@ -436,8 +444,13 @@ public final class TabletWebServer {
         }
 
         String ip = getLocalIpAddress(appContext);
-        String rawModel = Build.MODEL != null ? Build.MODEL : "Máy tính bảng Android";
-        String model = "KFTRWI".equalsIgnoreCase(rawModel) ? "Fire HD 10" : rawModel;
+        String model = DeviceIdentityManager.getFriendlyModel(appContext);
+        String devType = DeviceIdentityManager.getDeviceType(appContext);
+        String devId = DeviceIdentityManager.getDeviceId(appContext);
+        String pairCode = DeviceIdentityManager.getPairingCode(appContext);
+        boolean isPaired = DeviceIdentityManager.isPaired(appContext);
+        String ownerName = DeviceIdentityManager.getOwnerName(appContext);
+        String pairedName = DeviceIdentityManager.getPairedDeviceName(appContext);
         int batteryPct = TabletMonitorService.getBatteryPercent(appContext);
         boolean charging = TabletMonitorService.isCharging(appContext);
         boolean screenOn = TabletMonitorService.isScreenOn(appContext);
@@ -455,19 +468,22 @@ public final class TabletWebServer {
         boolean schedActive = TabletControlManager.isScheduleActiveNow();
         boolean cloudOn = TabletCloudClient.isConnected();
 
-        String weatherSummary = String.format(Locale.US,
-                "🔋 Pin %d%%%s · ⏱ Hôm nay: %d phút",
-                Math.max(0, batteryPct),
-                charging ? " (Đang sạc)" : "",
-                todayMin);
+        String weatherSummary = "tv".equals(devType)
+                ? String.format(Locale.US, "📺 Android TV · ⏱ Hôm nay: %d phút", todayMin)
+                : String.format(Locale.US,
+                        "🔋 Pin %d%%%s · ⏱ Hôm nay: %d phút",
+                        Math.max(0, batteryPct),
+                        charging ? " (Đang sạc)" : "",
+                        todayMin);
 
         String appsJson = buildAppsListJson();
 
         return String.format(Locale.US,
-                "{\"ok\":true,\"deviceType\":\"tablet\",\"model\":\"%s\",\"ip\":\"%s\",\"port\":%d,"
+                "{\"ok\":true,\"deviceType\":\"%s\",\"appFlavor\":\"guard\",\"model\":\"%s\",\"ip\":\"%s\",\"port\":%d,"
                         + "\"vol\":%d,\"max\":%d,\"muted\":%b,"
                         + "\"batteryPct\":%d,\"charging\":%b,\"screenOn\":%b,\"todayScreenMin\":%d,"
                         + "\"adbEnabled\":true,\"cloudConnected\":%b,\"deviceId\":\"%s\","
+                        + "\"pairingCode\":\"%s\",\"paired\":%b,\"ownerName\":\"%s\",\"pairedDeviceName\":\"%s\","
                         + "\"weather\":\"%s\","
                         + "\"ramFreeMb\":%d,\"ramTotalMb\":%d,\"storageFreeMb\":%d,\"storageTotalMb\":%d,"
                         + "\"nowPlaying\":{\"hasMedia\":%b,\"playing\":%b,\"pkg\":\"%s\",\"appLabel\":\"%s\","
@@ -475,10 +491,11 @@ public final class TabletWebServer {
                         + "\"parental\":{\"locked\":%b,\"remainingSec\":%d,\"warningText\":\"%s\",\"lockMessage\":\"%s\","
                         + "\"scheduleEnabled\":%b,\"scheduleStart\":\"%s\",\"scheduleEnd\":\"%s\",\"scheduleActiveNow\":%b},"
                         + "\"tabletApps\":%s}",
-                escapeJson(model), escapeJson(ip), PORT,
+                escapeJson(devType), escapeJson(model), escapeJson(ip), PORT,
                 vol, max, muted,
                 batteryPct, charging, screenOn, todayMin,
-                cloudOn, TabletCloudClient.DEVICE_ID,
+                cloudOn, escapeJson(devId),
+                escapeJson(pairCode), isPaired, escapeJson(ownerName), escapeJson(pairedName),
                 escapeJson(weatherSummary),
                 ramFreeMb, ramTotalMb, storageFreeMb, storageTotalMb,
                 np.hasMedia, np.playing, escapeJson(np.pkg), escapeJson(np.appLabel),
@@ -506,6 +523,12 @@ public final class TabletWebServer {
 
             List<ResolveInfo> list = pm.queryIntentActivities(
                     new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER), 0);
+            List<ResolveInfo> tvList = pm.queryIntentActivities(
+                    new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LEANBACK_LAUNCHER), 0);
+            if (tvList != null) {
+                if (list == null) list = tvList;
+                else list.addAll(tvList);
+            }
             if (list != null) {
                 Collections.sort(list, (a, b) -> {
                     boolean aUser = a.activityInfo != null && a.activityInfo.applicationInfo != null

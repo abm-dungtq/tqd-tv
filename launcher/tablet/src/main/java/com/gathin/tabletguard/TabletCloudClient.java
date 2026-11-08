@@ -1,6 +1,7 @@
 package com.gathin.tabletguard;
 
 import android.content.Context;
+import android.os.Build;
 import android.os.SystemClock;
 
 import org.json.JSONObject;
@@ -15,9 +16,7 @@ import java.nio.charset.StandardCharsets;
 
 public final class TabletCloudClient {
 
-    public static final String DEVICE_ID = "tablet01";
-    public static final String TOPIC_CMD = "agytv/" + DEVICE_ID + "/cmd";
-    public static final String TOPIC_STATE = "agytv/" + DEVICE_ID + "/state";
+    public static final String LEGACY_DEVICE_ID = "tablet01";
 
     private static final String[] BROKERS = new String[]{"broker.emqx.io"};
     private static final int MQTT_PORT = 1883;
@@ -32,9 +31,22 @@ public final class TabletCloudClient {
 
     private TabletCloudClient() {}
 
+    public static String getActiveDeviceId() {
+        return DeviceIdentityManager.getDeviceId(appContext);
+    }
+
+    public static String getActivePairingCode() {
+        return DeviceIdentityManager.getPairingCode(appContext);
+    }
+
+    private static boolean shouldMirrorLegacyTopic() {
+        return "KFTRWI".equalsIgnoreCase(Build.MODEL);
+    }
+
     public static void ensureRunning(Context ctx) {
         if (ctx != null) {
             appContext = ctx.getApplicationContext();
+            DeviceIdentityManager.init(appContext);
         }
         if (started) return;
         synchronized (TabletCloudClient.class) {
@@ -66,11 +78,21 @@ public final class TabletCloudClient {
     public static void publishCurrentStateNow() {
         if (!connected || activeOut == null) return;
         try {
+            String devId = getActiveDeviceId();
+            String code = getActivePairingCode();
             String json = TabletWebServer.buildStatusJson();
-            byte[] pkt = buildPublishPacket(TOPIC_STATE, json, true);
+            byte[] pktPrimary = buildPublishPacket("agytv/" + devId + "/state", json, true);
+            byte[] pktPairBeacon = buildPublishPacket("agytv/pair/" + code, json, true);
+            byte[] pktLegacy = shouldMirrorLegacyTopic()
+                    ? buildPublishPacket("agytv/" + LEGACY_DEVICE_ID + "/state", json, true)
+                    : null;
             synchronized (WRITE_LOCK) {
                 if (activeOut != null) {
-                    activeOut.write(pkt);
+                    activeOut.write(pktPrimary);
+                    activeOut.write(pktPairBeacon);
+                    if (pktLegacy != null) {
+                        activeOut.write(pktLegacy);
+                    }
                     activeOut.flush();
                     lastStatePublishMs = SystemClock.elapsedRealtime();
                 }
@@ -116,7 +138,9 @@ public final class TabletCloudClient {
                 InputStream in = sock.getInputStream();
                 OutputStream out = sock.getOutputStream();
 
-                String clientId = "tqd_tab_" + DEVICE_ID + "_" + (System.currentTimeMillis() % 10000);
+                String devId = getActiveDeviceId();
+                String code = getActivePairingCode();
+                String clientId = "tqd_" + devId + "_" + (System.currentTimeMillis() % 10000);
                 synchronized (WRITE_LOCK) {
                     out.write(buildConnectPacket(clientId, KEEP_ALIVE_SEC));
                     out.flush();
@@ -132,7 +156,11 @@ public final class TabletCloudClient {
                 synchronized (WRITE_LOCK) {
                     activeOut = out;
                     connected = true;
-                    out.write(buildSubscribePacket(1, TOPIC_CMD));
+                    out.write(buildSubscribePacket(1, "agytv/" + devId + "/cmd"));
+                    out.write(buildSubscribePacket(2, "agytv/pair/" + code + "/cmd"));
+                    if (shouldMirrorLegacyTopic()) {
+                        out.write(buildSubscribePacket(3, "agytv/" + LEGACY_DEVICE_ID + "/cmd"));
+                    }
                     out.flush();
                 }
 
@@ -187,6 +215,19 @@ public final class TabletCloudClient {
             String type = obj.optString("type", "");
             if ("ping".equals(type) || "status".equals(type)) {
                 publishCurrentStateNow();
+                return;
+            }
+            if ("pair_confirmed".equals(type)) {
+                String ownerName = obj.optString("ownerName", "Tài khoản Bố/Mẹ");
+                String deviceName = obj.optString("deviceName", DeviceIdentityManager.getFriendlyModel(appContext));
+                String newPin = obj.optString("newPin", "").trim();
+                DeviceIdentityManager.onPairConfirmed(appContext, ownerName, deviceName, newPin);
+                TabletControlManager.handleParentalCommand("message", 0,
+                        "🎉 Đã đồng bộ thiết bị với tài khoản của " + ownerName + " (" + deviceName + ")!");
+                return;
+            }
+            if ("unpair".equals(type)) {
+                DeviceIdentityManager.onUnpaired(appContext);
                 return;
             }
             if ("key".equals(type)) {

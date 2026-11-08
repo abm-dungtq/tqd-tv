@@ -22,6 +22,7 @@ import java.nio.charset.StandardCharsets;
 public final class CloudTunnelClient {
 
     public static final String DEVICE_ID = "50a009620752";
+    public static final String DEFAULT_PAIRING_CODE = "500962";
     public static final String TOPIC_CMD = "agytv/" + DEVICE_ID + "/cmd";
     public static final String TOPIC_STATE = "agytv/" + DEVICE_ID + "/state";
 
@@ -38,6 +39,41 @@ public final class CloudTunnelClient {
 
     private CloudTunnelClient() {}
 
+    public static String getActiveDeviceId(Context ctx) {
+        Context c = ctx != null ? ctx.getApplicationContext() : appContext;
+        if (c == null) return DEVICE_ID;
+        android.content.SharedPreferences sp = c.getSharedPreferences("tqd_tv_identity", Context.MODE_PRIVATE);
+        String saved = sp.getString("device_id", null);
+        if (saved != null && !saved.isEmpty()) return saved;
+        String rawId = "";
+        try {
+            rawId = android.provider.Settings.Secure.getString(c.getContentResolver(), android.provider.Settings.Secure.ANDROID_ID);
+        } catch (Throwable ignored) {}
+        String dev = android.os.Build.DEVICE != null ? android.os.Build.DEVICE : "";
+        if ("matrix".equalsIgnoreCase(dev) || rawId == null || rawId.length() < 4) {
+            sp.edit().putString("device_id", DEVICE_ID).apply();
+            return DEVICE_ID;
+        }
+        String clean = rawId.replaceAll("[^a-zA-Z0-9]", "").toLowerCase();
+        if (clean.length() > 10) clean = clean.substring(clean.length() - 10);
+        String id = "tv_" + clean;
+        sp.edit().putString("device_id", id).apply();
+        return id;
+    }
+
+    public static String getPairingCode(Context ctx) {
+        String id = getActiveDeviceId(ctx);
+        if (DEVICE_ID.equals(id)) return DEFAULT_PAIRING_CODE;
+        long hash = 2166136261L;
+        for (int i = 0; i < id.length(); i++) {
+            hash ^= id.charAt(i);
+            hash *= 16777619L;
+            hash &= 0x7FFFFFFFL;
+        }
+        int codeNum = 100000 + (int) (hash % 900000L);
+        return String.format(java.util.Locale.US, "%06d", codeNum);
+    }
+
     public static void ensureRunning(Context ctx) {
         if (ctx != null) {
             appContext = ctx.getApplicationContext();
@@ -53,6 +89,49 @@ public final class CloudTunnelClient {
             Thread publisherThread = new Thread(CloudTunnelClient::statePublisherLoop, "cloud-tunnel-pub");
             publisherThread.setDaemon(true);
             publisherThread.start();
+
+            Thread regThread = new Thread(CloudTunnelClient::registerCodeLoop, "cloud-tunnel-reg");
+            regThread.setDaemon(true);
+            regThread.start();
+        }
+    }
+
+    private static void registerCodeLoop() {
+        while (true) {
+            java.net.HttpURLConnection conn = null;
+            try {
+                if (appContext != null) {
+                    String devId = getActiveDeviceId(appContext);
+                    String code = getPairingCode(appContext);
+                    JSONObject req = new JSONObject();
+                    req.put("deviceId", devId);
+                    req.put("pairingCode", code);
+                    req.put("deviceType", "tv");
+                    req.put("appFlavor", "launcher");
+                    req.put("model", android.os.Build.MODEL != null ? android.os.Build.MODEL : "Android TV");
+                    java.net.URL url = new java.net.URL("https://tv.tqd.me/api/device/register-code");
+                    conn = (java.net.HttpURLConnection) url.openConnection();
+                    conn.setRequestMethod("POST");
+                    conn.setConnectTimeout(6000);
+                    conn.setReadTimeout(6000);
+                    conn.setDoOutput(true);
+                    conn.setRequestProperty("Content-Type", "application/json; charset=utf-8");
+                    byte[] body = req.toString().getBytes(StandardCharsets.UTF_8);
+                    OutputStream os = conn.getOutputStream();
+                    os.write(body);
+                    os.flush();
+                    os.close();
+                    conn.getResponseCode();
+                }
+            } catch (Throwable ignored) {
+            } finally {
+                if (conn != null) {
+                    try { conn.disconnect(); } catch (Throwable ignored) {}
+                }
+            }
+            try {
+                Thread.sleep(20000L);
+            } catch (InterruptedException ignored) {}
         }
     }
 
@@ -86,11 +165,15 @@ public final class CloudTunnelClient {
         OutputStream out = activeOut;
         if (out == null || !connected) return;
         try {
+            String devId = getActiveDeviceId(appContext);
+            String code = getPairingCode(appContext);
             String statusJson = WebRemoteServer.buildStatusJson();
-            byte[] pkt = buildPublishPacket(TOPIC_STATE, statusJson, true);
+            byte[] pkt = buildPublishPacket("agytv/" + devId + "/state", statusJson, true);
+            byte[] pktBeacon = buildPublishPacket("agytv/pair/" + code, statusJson, true);
             synchronized (WRITE_LOCK) {
                 if (activeOut != null) {
                     activeOut.write(pkt);
+                    activeOut.write(pktBeacon);
                     activeOut.flush();
                     lastStatePublishMs = SystemClock.uptimeMillis();
                 }
@@ -117,7 +200,9 @@ public final class CloudTunnelClient {
                 InputStream in = sock.getInputStream();
                 OutputStream out = sock.getOutputStream();
 
-                String clientId = "mitv_" + DEVICE_ID + "_" + (SystemClock.elapsedRealtime() % 99999);
+                String devId = getActiveDeviceId(appContext);
+                String code = getPairingCode(appContext);
+                String clientId = "mitv_" + devId + "_" + (SystemClock.elapsedRealtime() % 99999);
                 synchronized (WRITE_LOCK) {
                     out.write(buildConnectPacket(clientId, 30));
                     out.flush();
@@ -137,7 +222,8 @@ public final class CloudTunnelClient {
                 synchronized (WRITE_LOCK) {
                     activeOut = out;
                     connected = true;
-                    out.write(buildSubscribePacket(1, TOPIC_CMD));
+                    out.write(buildSubscribePacket(1, "agytv/" + devId + "/cmd"));
+                    out.write(buildSubscribePacket(2, "agytv/pair/" + code + "/cmd"));
                     out.flush();
                 }
 
@@ -202,6 +288,17 @@ public final class CloudTunnelClient {
             String type = obj.optString("type", "");
             if ("ping".equals(type) || "status".equals(type)) {
                 publishCurrentStateNow();
+                return;
+            }
+            if ("pair_confirmed".equals(type)) {
+                String ownerName = obj.optString("ownerName", "Tài khoản Bố/Mẹ");
+                String newPin = obj.optString("newPin", "").trim();
+                if (newPin.length() >= 4) {
+                    ParentalControlManager.setPin(appContext, newPin);
+                }
+                ParentalControlManager.handleParentalCommand("message", 0,
+                        "🎉 Đã đồng bộ Tivi với tài khoản của " + ownerName + "!");
+                publishStateSoon();
                 return;
             }
             if ("key".equals(type)) {

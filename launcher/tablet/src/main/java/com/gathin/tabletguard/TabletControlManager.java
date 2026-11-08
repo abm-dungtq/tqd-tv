@@ -656,6 +656,7 @@ public final class TabletControlManager {
             int btnW = Math.round(78 * d);
             int btnH = Math.round(54 * d);
             int margin = Math.round(6 * d);
+            TextView firstKeyBtn = null;
             for (final String k : keys) {
                 TextView btn = new TextView(appContext);
                 btn.setText(k);
@@ -663,18 +664,39 @@ public final class TabletControlManager {
                 btn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 20);
                 btn.setTypeface(Typeface.DEFAULT_BOLD);
                 btn.setGravity(Gravity.CENTER);
-                GradientDrawable bg = new GradientDrawable();
-                bg.setColor("✓".equals(k) ? 0xFF2563EB : 0xFF1E293B);
+                final boolean isConfirm = "✓".equals(k);
+                final GradientDrawable bg = new GradientDrawable();
+                bg.setColor(isConfirm ? 0xFF2563EB : 0xFF1E293B);
                 bg.setCornerRadius(14 * d);
-                bg.setStroke(Math.max(1, Math.round(1.2f * d)), 0x33FFFFFF);
+                bg.setStroke(Math.max(1, Math.round(1.5f * d)), 0x33FFFFFF);
                 btn.setBackground(bg);
+                btn.setFocusable(true);
+                btn.setClickable(true);
+                btn.setOnFocusChangeListener((v, hasFocus) -> {
+                    bg.setColor(hasFocus ? 0xFF3B82F6 : (isConfirm ? 0xFF2563EB : 0xFF1E293B));
+                    bg.setStroke(Math.max(2, Math.round(2.5f * d)), hasFocus ? 0xFFFDE047 : 0x33FFFFFF);
+                });
                 btn.setOnClickListener(v -> onPinKeyTap(k));
+                btn.setOnKeyListener((v, keyCode, event) -> {
+                    if (event.getAction() == android.view.KeyEvent.ACTION_DOWN) {
+                        if (keyCode >= android.view.KeyEvent.KEYCODE_0 && keyCode <= android.view.KeyEvent.KEYCODE_9) {
+                            onPinKeyTap(String.valueOf(keyCode - android.view.KeyEvent.KEYCODE_0));
+                            return true;
+                        }
+                        if (keyCode == android.view.KeyEvent.KEYCODE_DEL) {
+                            onPinKeyTap("⌫");
+                            return true;
+                        }
+                    }
+                    return false;
+                });
 
                 GridLayout.LayoutParams glp = new GridLayout.LayoutParams();
                 glp.width = btnW;
                 glp.height = btnH;
                 glp.setMargins(margin, margin, margin, margin);
                 grid.addView(btn, glp);
+                if (firstKeyBtn == null) firstKeyBtn = btn;
             }
             root.addView(grid);
 
@@ -688,6 +710,9 @@ public final class TabletControlManager {
             wlp.gravity = Gravity.CENTER;
             wm.addView(root, wlp);
             lockOverlayView = root;
+            if (firstKeyBtn != null) {
+                firstKeyBtn.requestFocus();
+            }
         } catch (Throwable ignored) {}
     }
 

@@ -4,3 +4,8 @@ compatibility_date = "2024-11-01"
 routes = [
   { pattern = "tv.tqd.me", custom_domain = true }
 ]
+
+[[d1_databases]]
+binding = "tqd_parental_db"
+database_name = "tqd-parental-db"
+database_id = "f567e15b-e0af-40e9-a158-82cabd550498"

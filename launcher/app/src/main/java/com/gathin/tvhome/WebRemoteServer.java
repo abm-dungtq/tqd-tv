@@ -478,10 +478,12 @@ public final class WebRemoteServer {
         ytJson.append("]}");
 
         String wpCaption = MainActivity.currentWallpaperCaption();
+        String activeDevId = CloudTunnelClient.getActiveDeviceId(appContext);
+        String activePairCode = CloudTunnelClient.getPairingCode(appContext);
 
         return String.format(Locale.US,
-                "{\"ok\":true,\"ip\":\"%s\",\"port\":%d,\"vol\":%d,\"max\":%d,\"muted\":%b,"
-                        + "\"adbEnabled\":%b,\"cloudConnected\":%b,\"deviceId\":\"%s\","
+                "{\"ok\":true,\"deviceType\":\"tv\",\"appFlavor\":\"launcher\",\"ip\":\"%s\",\"port\":%d,\"vol\":%d,\"max\":%d,\"muted\":%b,"
+                        + "\"adbEnabled\":%b,\"cloudConnected\":%b,\"deviceId\":\"%s\",\"pairingCode\":\"%s\","
                         + "\"weather\":\"%s\",\"activeTheme\":\"%s\",\"wallpaperCaption\":\"%s\","
                         + "\"ramFreeMb\":%d,\"ramTotalMb\":%d,\"storageFreeMb\":%d,\"storageTotalMb\":%d,"
                         + "\"lastClean\":\"%s\","
@@ -491,7 +493,7 @@ public final class WebRemoteServer {
                         + "\"scheduleEnabled\":%b,\"scheduleStart\":\"%s\",\"scheduleEnd\":\"%s\",\"scheduleActiveNow\":%b},"
                         + "\"ytShelf\":%s}",
                 escapeJson(ip), PORT, vol, max, muted,
-                adbOn, cloudOn, CloudTunnelClient.DEVICE_ID,
+                adbOn, cloudOn, escapeJson(activeDevId), escapeJson(activePairCode),
                 escapeJson(weather), escapeJson(activeTheme), escapeJson(wpCaption),
                 ramFreeMb, ramTotalMb, storageFreeMb, storageTotalMb,
                 escapeJson(lastCleanSummary),
@@ -1719,9 +1721,12 @@ public final class WebRemoteServer {
             card.addView(qrView, qrLp);
         }
 
+        String pairCode = CloudTunnelClient.getPairingCode(activityCtx);
+        String fmtCode = pairCode.length() == 6 ? (pairCode.substring(0, 3) + " " + pairCode.substring(3)) : pairCode;
+
         TextView urlBadge = new TextView(activityCtx);
-        urlBadge.setText(url + "  •  " + lanUrl);
-        urlBadge.setTextColor(0xFF4DA3FF);
+        urlBadge.setText("🔗 MÃ GHÉP NỐI: " + fmtCode + "  •  " + url);
+        urlBadge.setTextColor(0xFFFCD34D);
         urlBadge.setTextSize(TypedValue.COMPLEX_UNIT_SP, 18);
         urlBadge.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
         urlBadge.setGravity(Gravity.CENTER);
@@ -1729,14 +1734,14 @@ public final class WebRemoteServer {
         int bPadV = Math.round(8 * density);
         urlBadge.setPadding(bPadH, bPadV, bPadH, bPadV);
         GradientDrawable badgeBg = new GradientDrawable();
-        badgeBg.setColor(0x224DA3FF);
+        badgeBg.setColor(0x2DF59E0B);
         badgeBg.setCornerRadius(10 * density);
-        badgeBg.setStroke(Math.max(1, Math.round(density)), 0x554DA3FF);
+        badgeBg.setStroke(Math.max(1, Math.round(density)), 0xFFF59E0B);
         urlBadge.setBackground(badgeBg);
         card.addView(urlBadge);
 
         TextView hint = new TextView(activityCtx);
-        hint.setText("Mẹo: Chọn \"Thêm vào Màn hình chính\" trên Safari / Chrome để dùng như ứng dụng Remote riêng.");
+        hint.setText("Mở https://tv.tqd.me trên điện thoại -> Đăng nhập -> Nhập mã 6 số \"" + pairCode + "\" để liên kết Tivi này.");
         hint.setTextColor(0x88FFFFFF);
         hint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
         hint.setGravity(Gravity.CENTER);
