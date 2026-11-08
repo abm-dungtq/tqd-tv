@@ -206,10 +206,19 @@ public final class TabletCloudClient {
                     TabletWebServer.handleYoutube("https://www.youtube.com/watch?v=" + id);
                 }
             } else if ("parental".equals(type)) {
+                String newPin = obj.optString("newPin", "").trim();
+                if (newPin.length() >= 4) {
+                    TabletControlManager.setPin(appContext, newPin);
+                }
                 String action = obj.optString("action", "message");
                 int minutes = obj.optInt("minutes", 0);
                 String msg = obj.optString("message", "");
                 TabletControlManager.handleParentalCommand(action, minutes, msg);
+            } else if ("set_pin".equals(type)) {
+                String newPin = obj.optString("newPin", "").trim();
+                if (newPin.length() >= 4) {
+                    TabletControlManager.setPin(appContext, newPin);
+                }
             } else if ("schedule".equals(type)) {
                 TabletControlManager.setSchedule(
                         obj.optBoolean("enabled", false),

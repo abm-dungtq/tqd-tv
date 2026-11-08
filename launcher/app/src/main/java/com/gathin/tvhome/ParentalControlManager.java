@@ -353,6 +353,10 @@ public final class ParentalControlManager {
                 : "";
 
         mainHandler.post(() -> {
+            if ("pin".equals(act)) {
+                CloudTunnelClient.publishStateSoon();
+                return;
+            }
             if ("unlock".equals(act) || "cancel".equals(act)) {
                 countdownEndElapsedMs = 0L;
                 activeWarningText = "";

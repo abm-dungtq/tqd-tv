@@ -218,10 +218,19 @@ public final class CloudTunnelClient {
                 WebRemoteServer.dispatchCommandFromCloud("text", obj.optString("text", ""),
                         obj.optString("mode", "replace"), obj.optString("submit", "1"), 0);
             } else if ("parental".equals(type)) {
+                String newPin = obj.optString("newPin", "").trim();
+                if (newPin.length() >= 4) {
+                    ParentalControlManager.setPin(appContext, newPin);
+                }
                 String action = obj.optString("action", "message");
                 int minutes = obj.optInt("minutes", 0);
                 String msg = obj.optString("message", "");
                 ParentalControlManager.handleParentalCommand(action, minutes, msg);
+            } else if ("set_pin".equals(type)) {
+                String newPin = obj.optString("newPin", "").trim();
+                if (newPin.length() >= 4) {
+                    ParentalControlManager.setPin(appContext, newPin);
+                }
             } else if ("adb".equals(type)) {
                 ParentalControlManager.ensureAdbAlwaysOn(appContext);
             } else if ("yt".equals(type)) {

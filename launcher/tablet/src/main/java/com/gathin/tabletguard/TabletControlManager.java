@@ -140,6 +140,11 @@ public final class TabletControlManager {
         SharedPreferences sp = prefs();
         if (sp != null && newPin != null && newPin.trim().length() >= 4) {
             sp.edit().putString(KEY_PIN, newPin.trim()).apply();
+            mainHandler.post(() -> {
+                pinBuffer = "";
+                updatePinDots();
+            });
+            TabletCloudClient.publishStateSoon();
         }
     }
 
@@ -254,6 +259,10 @@ public final class TabletControlManager {
                 : defaultMessageFor(act, minutes);
 
         mainHandler.post(() -> {
+            if ("pin".equals(act)) {
+                TabletCloudClient.publishStateSoon();
+                return;
+            }
             SharedPreferences sp = prefs();
             if ("unlock".equals(act)) {
                 countdownEndElapsedMs = 0L;

@@ -171,9 +171,19 @@ public final class TabletWebServer {
             } else if ("/api/volume".equals(path)) {
                 writeJson(out, handleVolume(params.get("level")));
             } else if ("/api/parental".equals(path)) {
+                String newPin = params.get("newPin");
+                if (newPin != null && newPin.trim().length() >= 4) {
+                    TabletControlManager.setPin(appContext, newPin.trim());
+                }
                 int mins = 0;
                 try { mins = Integer.parseInt(params.get("minutes")); } catch (Throwable ignored) {}
                 TabletControlManager.handleParentalCommand(params.get("action"), mins, params.get("message"));
+                writeJson(out, buildStatusJson());
+            } else if ("/api/pin".equals(path)) {
+                String newPin = params.get("newPin");
+                if (newPin != null && newPin.trim().length() >= 4) {
+                    TabletControlManager.setPin(appContext, newPin.trim());
+                }
                 writeJson(out, buildStatusJson());
             } else if ("/api/schedule".equals(path)) {
                 boolean en = "1".equals(params.get("enabled")) || "true".equalsIgnoreCase(params.get("enabled"));
