@@ -390,8 +390,15 @@ public class TabletMonitorService extends NotificationListenerService {
         if ("com.google.android.apps.youtube.kids".equals(pkg)) return "YouTube Kids";
         if ("org.smarttube.stable".equals(pkg)) return "SmartTube (YouTube)";
         if ("com.android.chrome".equals(pkg)) return "Trình duyệt Chrome";
+        if ("com.amazon.cloud9".equals(pkg)) return "Trình duyệt Silk";
         if ("com.ss.android.ugc.trill".equals(pkg) || "com.zhiliaoapp.musically".equals(pkg)) return "TikTok";
-        if ("com.roblox.client".equals(pkg)) return "Roblox (Game)";
+        if ("com.roblox.client".equals(pkg) || "com.roblox.client.vnggames".equals(pkg)) return "Roblox (Game)";
+        if ("com.blockblast.vn".equals(pkg)) return "Block Blast! (Game)";
+        if ("com.maxgames.stickwarlegacy".equals(pkg)) return "Stick War: Legacy (Game)";
+        if ("com.maxgames.stickwar3".equals(pkg)) return "Stick War: Saga (Game)";
+        if ("com.duolingo".equals(pkg)) return "Duolingo (Học tiếng Anh)";
+        if ("org.telegram.messenger".equals(pkg)) return "Telegram";
+        if ("com.google.android.apps.bard".equals(pkg)) return "Gemini AI";
         if ("com.zing.zalo".equals(pkg)) return "Zalo";
         if ("com.facebook.katana".equals(pkg)) return "Facebook";
         if ("com.netflix.mediaclient".equals(pkg)) return "Netflix";

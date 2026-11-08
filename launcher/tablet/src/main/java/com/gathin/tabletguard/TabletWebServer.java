@@ -56,12 +56,20 @@ public final class TabletWebServer {
 
     private static final List<String> PRIORITY_APPS = Arrays.asList(
             "com.google.android.youtube",
-            "com.google.android.apps.youtube.kids",
             "org.smarttube.stable",
-            "com.android.chrome",
-            "com.ss.android.ugc.trill",
+            "com.google.android.apps.youtube.kids",
             "com.zhiliaoapp.musically",
+            "com.ss.android.ugc.trill",
+            "com.roblox.client.vnggames",
             "com.roblox.client",
+            "com.blockblast.vn",
+            "com.maxgames.stickwarlegacy",
+            "com.maxgames.stickwar3",
+            "org.telegram.messenger",
+            "com.duolingo",
+            "com.google.android.apps.bard",
+            "com.amazon.cloud9",
+            "com.android.chrome",
             "com.netflix.mediaclient",
             "com.zing.zalo",
             "com.facebook.katana"
@@ -418,7 +426,8 @@ public final class TabletWebServer {
         }
 
         String ip = getLocalIpAddress(appContext);
-        String model = Build.MODEL != null ? Build.MODEL : "Máy tính bảng Android";
+        String rawModel = Build.MODEL != null ? Build.MODEL : "Máy tính bảng Android";
+        String model = "KFTRWI".equalsIgnoreCase(rawModel) ? "Fire HD 10" : rawModel;
         int batteryPct = TabletMonitorService.getBatteryPercent(appContext);
         boolean charging = TabletMonitorService.isCharging(appContext);
         boolean screenOn = TabletMonitorService.isScreenOn(appContext);
@@ -480,8 +489,7 @@ public final class TabletWebServer {
                 try {
                     ApplicationInfo ai = pm.getApplicationInfo(pkg, 0);
                     if (ai != null && ai.enabled) {
-                        CharSequence lbl = ai.loadLabel(pm);
-                        found.put(pkg, lbl != null ? lbl.toString() : pkg);
+                        found.put(pkg, TabletMonitorService.resolveAppLabel(appContext, pkg));
                     }
                 } catch (Throwable ignored) {}
             }
@@ -489,15 +497,20 @@ public final class TabletWebServer {
             List<ResolveInfo> list = pm.queryIntentActivities(
                     new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER), 0);
             if (list != null) {
-                Collections.sort(list, (a, b) -> String.valueOf(a.loadLabel(pm))
-                        .compareToIgnoreCase(String.valueOf(b.loadLabel(pm))));
+                Collections.sort(list, (a, b) -> {
+                    boolean aUser = a.activityInfo != null && a.activityInfo.applicationInfo != null
+                            && (a.activityInfo.applicationInfo.flags & ApplicationInfo.FLAG_SYSTEM) == 0;
+                    boolean bUser = b.activityInfo != null && b.activityInfo.applicationInfo != null
+                            && (b.activityInfo.applicationInfo.flags & ApplicationInfo.FLAG_SYSTEM) == 0;
+                    if (aUser != bUser) return aUser ? -1 : 1;
+                    return String.valueOf(a.loadLabel(pm)).compareToIgnoreCase(String.valueOf(b.loadLabel(pm)));
+                });
                 for (ResolveInfo ri : list) {
                     if (ri.activityInfo == null) continue;
                     String pkg = ri.activityInfo.packageName;
                     if (pkg == null || pkg.equals(appContext.getPackageName()) || found.containsKey(pkg)) continue;
                     if (pkg.startsWith("com.android.settings") || pkg.startsWith("com.android.systemui")) continue;
-                    CharSequence lbl = ri.loadLabel(pm);
-                    found.put(pkg, lbl != null ? lbl.toString() : pkg);
+                    found.put(pkg, TabletMonitorService.resolveAppLabel(appContext, pkg));
                     if (found.size() >= 24) break;
                 }
             }
