@@ -316,6 +316,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private PopupWindow openPopup;
     /** Reorder mode is on (top-bar button). */
     private boolean reordering;
+    /** True when reorder mode was entered via "Di chuyển vị trí" on a single tile, so pressing OK drops & saves immediately. */
+    private boolean singleTileMove;
     /** Key of the tile being carried in reorder mode, or null. */
     private String movingKey;
     /** Tile order when reorder mode started, to save only when something moved. */
@@ -1134,7 +1136,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         // Capture the app before rebinding can move focus and overwrite its key.
         final String returnKey = lastFocusedKey;
         final int returnSlot = lastFocused;
-        final boolean restoreFocus = appLibrary == null && (animate || grid.hasFocus());
+        final boolean restoreFocus = appLibrary == null && openPopup == null && !topBarHasFocus();
         if (restoreFocus) {
             glassShown = false;
             glass.setAlpha(0f);
@@ -1204,6 +1206,17 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         lastFocusedKey = returnKey;
         lastFocused = returnSlot;
         packageSequence = currentPackageSequence(packageSequence);
+        dimOthers();
+        grid.invalidateItemDecorations();
+        grid.post(() -> {
+            dimOthers();
+            grid.invalidateItemDecorations();
+        });
+    }
+
+    private boolean topBarHasFocus() {
+        View topButtons = findViewById(R.id.topButtons);
+        return topButtons != null && topButtons.hasFocus();
     }
 
     /**
@@ -1363,7 +1376,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                     return true;
                 default:
                     if (ok || back) {
-                        if (!down) drop();
+                        if (!down) {
+                            if (singleTileMove || back) endReorder();
+                            else drop();
+                        }
                         return true;
                     }
                     return super.dispatchKeyEvent(event);
@@ -1403,11 +1419,21 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private boolean suppressTileClick;
 
     /**
-     * Hold OK on a tile opens its menu. A short press still opens the app. While reordering, OK is
+     * Hold OK (or press MENU) on a tile opens its menu. A short press still opens the app. While reordering, OK is
      * left to that mode.
      */
     private boolean handleTileMenuKey(KeyEvent event) {
         int code = event.getKeyCode();
+        if (code == KeyEvent.KEYCODE_MENU) {
+            if (event.getAction() == KeyEvent.ACTION_DOWN && event.getRepeatCount() == 0) {
+                int pos = focusedTilePosition();
+                if (pos >= 0) {
+                    showAppMenu(pos, getCurrentFocus());
+                    return true;
+                }
+            }
+            return false;
+        }
         boolean ok = code == KeyEvent.KEYCODE_DPAD_CENTER || code == KeyEvent.KEYCODE_ENTER
                 || code == KeyEvent.KEYCODE_NUMPAD_ENTER;
         if (!ok) return false;
@@ -1435,20 +1461,52 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         return true;
     }
 
-    /** Hold OK: uninstall a downloaded app, or open its system page. System apps only offer the page. */
+    /** Hold OK or press Menu on a tile: Move, Add/Swap in Top 5 Dock, Uninstall, Hide, and App Info. */
     private void showAppMenu(int position, View anchor) {
         if (isFinishing() || anchor == null || reordering) return;
         if (openPopup != null && openPopup.isShowing()) return;
+        String key = adapter.keyAt(position);
         String pkg = adapter.packageAt(position);
-        if (pkg == null) return;
+        if (key == null || pkg == null || pkg.equals(getPackageName())) return;
         String label = adapter.labelAt(position);
         View panel = getLayoutInflater().inflate(R.layout.popup_inputs, root, false);
         LinearLayout rows = panel.findViewById(R.id.rows);
-        PopupWindow popup = glassPopup(panel, (int) (200 * density));
-        if (uninstallable(pkg)) addSettingsMenuRow(rows, popup, R.string.uninstall_app, () -> uninstall(pkg, label));
+        PopupWindow popup = glassPopup(panel, (int) (240 * density));
+        if (position < adapter.movableCount()) {
+            addSettingsMenuRow(rows, popup, R.string.tile_move, () -> {
+                singleTileMove = true;
+                if (!beginReorder()) {
+                    singleTileMove = false;
+                    return;
+                }
+                int at = adapter.positionOf(key);
+                if (at < 0) {
+                    endReorder();
+                    return;
+                }
+                focusTile(at);
+                pickUp(at);
+                Toast.makeText(this, R.string.reorder_hint, Toast.LENGTH_LONG).show();
+            });
+        }
+        if (dockRow && position < adapter.movableCount() && adapter.movableCount() > 1) {
+            boolean inDock = position < COLUMNS;
+            addSettingsMenuRow(rows, popup, inDock ? R.string.tile_replace_in_dock : R.string.tile_add_to_dock,
+                    () -> startDockEditFor(key, inDock));
+        }
+        if (uninstallable(pkg)) {
+            addSettingsMenuRow(rows, popup, R.string.uninstall_app, () -> uninstall(pkg, label));
+        }
+        if (appLibraryEnabled) {
+            addSettingsMenuRow(rows, popup, R.string.library_remove_shortcut, () -> {
+                if (LibraryApps.save(this, pkg, false)) reloadApps(false);
+                else Toast.makeText(this, R.string.library_save_failed, Toast.LENGTH_LONG).show();
+            });
+        }
         addSettingsMenuRow(rows, popup, R.string.library_app_info, () -> openAppInfo(pkg, label));
+        UiFont.applyLexendTree(panel);
         panel.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
-        popup.setWidth(Math.max((int) (160 * density), panel.getMeasuredWidth()));
+        popup.setWidth(Math.max((int) (220 * density), panel.getMeasuredWidth()));
         hideGlass();
         // Window coordinates, not screen coordinates: this TV has a status bar, and screen
         // coordinates put the menu a bar's height away from the tile. Above the tile when it
@@ -1536,6 +1594,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         orderAtStart = adapter.movableKeys();
         glass.setAccent(REORDER_ACCENT);
         btnReorder.setActivated(true);
+        setDrawerExpanded(true);
+        dimOthers();
+        grid.invalidateItemDecorations();
         return true;
     }
 
@@ -1661,13 +1722,21 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     }
 
     private void setDrawerExpanded(boolean expanded) {
-        if (drawerExpanded == expanded) return;
+        if (drawerExpanded == expanded) {
+            dimOthers();
+            return;
+        }
         drawerExpanded = expanded;
         dimOthers();
         if (drawerHintView != null) {
             drawerHintView.animate().cancel();
             drawerHintView.animate().alpha(expanded ? 0f : 1f).setDuration(150).start();
         }
+    }
+
+    @Override
+    public float tileAlphaAt(int position) {
+        return tileAlpha(position);
     }
 
     /** A tile's alpha: dim unless it is the carried one, or, in edit-dock mode, a dock tile other than the chosen place. */
@@ -1685,6 +1754,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     /** Ends the mode and saves the order if it changed since the mode started. */
     private void endReorder() {
         if (!reordering) return;
+        singleTileMove = false;
         dockEditing = false;
         dockEditSlot = -1;
         dockEditAppKey = null;
@@ -1708,11 +1778,15 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             Order order = new Order(Order.dockKey(dockApps), keys, docked);
             if (Order.save(Order.file(this), order)) {
                 adapter.setSavedOrder(Order.ranks(order, dockApps), Order.docked(order, dockApps));
+                Toast.makeText(this, "✓ Đã lưu vị trí ứng dụng", Toast.LENGTH_SHORT).show();
             } else {
                 Toast.makeText(this, R.string.reorder_not_saved, Toast.LENGTH_SHORT).show();
             }
         }
         if (fillDockLeavesSlots) reloadTiles();   // the empty dock slots left out while reordering come back
+        setDrawerExpanded(lastFocused >= COLUMNS);
+        dimOthers();
+        grid.invalidateItemDecorations();
     }
 
     /**
@@ -1781,6 +1855,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                 }
                 focusTile(pos);
                 dimOthers();   // views that came into view or were rebound during the move
+                grid.invalidateItemDecorations();
             }
         });
     }
@@ -3508,52 +3583,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
      */
     @Override
     public void onTileLongPress(int position, View card) {
-        if (reordering) return;
-        String key = adapter.keyAt(position);
-        String pkg = adapter.packageAt(position);
-        // Empty dock slots and the Default-home tile carry the launcher's own package: no menu for them.
-        if (key == null || pkg == null || pkg.equals(getPackageName())) return;
-        View panel = getLayoutInflater().inflate(R.layout.popup_inputs, root, false);
-        LinearLayout rows = panel.findViewById(R.id.rows);
-        PopupWindow popup = glassPopup(panel, (int) (200 * density));
-        if (dockRow && position < adapter.movableCount()) {
-            boolean inDock = position < COLUMNS;
-            addSettingsMenuRow(rows, popup, inDock ? R.string.tile_replace_in_dock : R.string.tile_add_to_dock,
-                    () -> startDockEditFor(key, inDock));
-        }
-        if (position < adapter.movableCount()) addSettingsMenuRow(rows, popup, R.string.tile_move, () -> {
-            if (!beginReorder()) return;
-            int at = adapter.positionOf(key);   // beginReorder can rebuild the tiles
-            if (at < 0) return;
-            focusTile(at);
-            pickUp(at);
-            Toast.makeText(this, R.string.reorder_hint, Toast.LENGTH_LONG).show();
-        });
-        if (appLibraryEnabled) addSettingsMenuRow(rows, popup, R.string.library_remove_shortcut, () -> {
-            if (LibraryApps.save(this, pkg, false)) reloadApps(false);
-            else Toast.makeText(this, R.string.library_save_failed, Toast.LENGTH_LONG).show();
-        });
-        // Some firmware has no App info page at all; a row that only toasts "can't open" helps nobody.
-        Intent info = SystemSettings.appInfo(this, pkg);
-        if (info != null) addSettingsMenuRow(rows, popup, R.string.library_app_info, () -> open(info));
-        panel.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
-        popup.setWidth(Math.max((int) (200 * density), panel.getMeasuredWidth()));
-        // Dock tiles sit near the bottom of the screen: open the menu above the tile when it would not fit below.
-        int[] at = new int[2];
-        card.getLocationInWindow(at);
-        int gap = (int) (10 * density), height = panel.getMeasuredHeight();
-        if (at[1] + card.getHeight() + gap + height <= root.getHeight()) {
-            dropIn(popup, panel, card, Gravity.START);
-        } else {
-            panel.setAlpha(0f);
-            panel.setPivotY(height);
-            panel.setScaleY(0.92f);
-            panel.setTranslationY(8 * density);
-            popup.showAtLocation(root, Gravity.NO_GRAVITY, at[0], Math.max(0, at[1] - gap - height));
-            panel.animate().alpha(1f).scaleY(1f).translationY(0f).setDuration(220)
-                    .setInterpolator(new android.view.animation.DecelerateInterpolator(1.6f)).start();
-        }
-        rows.getChildAt(0).requestFocus();
+        showAppMenu(position, card);
     }
 
     private void addSettingsMenuRow(LinearLayout rows, PopupWindow popup, int title, Runnable action) {

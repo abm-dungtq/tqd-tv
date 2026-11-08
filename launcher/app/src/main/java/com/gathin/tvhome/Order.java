@@ -93,19 +93,19 @@ final class Order {
     }
 
     /**
-     * Rank of each saved key (0 = first) when the order still applies to these dock_apps, else an empty map.
+     * Rank of each saved key (0 = first) when the order exists, else an empty map.
      * Tiles without a rank sort after every ranked one.
      */
     static Map<String, Integer> ranks(Order order, List<String> dockApps) {
         Map<String, Integer> r = new HashMap<>();
-        if (order == null || !order.dock.equals(dockKey(dockApps))) return r;
+        if (order == null) return r;
         for (int i = 0; i < order.keys.size(); i++) r.put(order.keys.get(i), i);
         return r;
     }
 
-    /** The saved dock size when the order still applies to these dock_apps and recorded one, else -1. */
+    /** Always return -1 so the top 5 dock row fills all 5 slots with the first 5 available apps without empty gaps. */
     static int docked(Order order, List<String> dockApps) {
-        return order == null || !order.dock.equals(dockKey(dockApps)) ? -1 : order.docked;
+        return -1;
     }
 
     /** Sort step for two tiles: saved ones first in saved order, then 0 to fall through to the usual rule. */

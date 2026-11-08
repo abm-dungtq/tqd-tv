@@ -69,12 +69,12 @@
     <string name="card_state_new_key">Khóa mới</string>
     <string name="card_state_new_label">Tên mới</string>
     <string name="greeting_with_name">%1$s, %2$s</string>
-    <string name="dock_edit">Chỉnh sửa dock</string>
-    <string name="dock_edit_hint">Chọn vị trí trên dock cần đổi rồi nhấn OK. Nhấn Quay lại để kết thúc.</string>
-    <string name="dock_edit_pick_app">Giờ chọn ứng dụng để đặt vào đó rồi nhấn OK. Nhấn Quay lại để chọn vị trí khác.</string>
-    <string name="tile_add_to_dock">Thêm vào dock</string>
-    <string name="tile_replace_in_dock">Thay bằng ứng dụng khác</string>
-    <string name="dock_edit_pick_place">Chọn vị trí trên dock cho ứng dụng này rồi nhấn OK. Nhấn Quay lại để hủy.</string>
+    <string name="dock_edit">Chỉnh sửa thanh 5 ứng dụng chính</string>
+    <string name="dock_edit_hint">Chọn vị trí trên thanh 5 ứng dụng chính cần đổi rồi nhấn OK. Nhấn Quay lại để kết thúc.</string>
+    <string name="dock_edit_pick_app">Chọn ứng dụng muốn đưa lên vị trí đó rồi nhấn OK. Nhấn Quay lại để chọn vị trí khác.</string>
+    <string name="tile_add_to_dock">Đưa lên thanh 5 ứng dụng chính</string>
+    <string name="tile_replace_in_dock">Đổi chỗ với ứng dụng khác</string>
+    <string name="dock_edit_pick_place">Chọn vị trí trên thanh 5 ứng dụng chính rồi nhấn OK. Nhấn Quay lại để hủy.</string>
     <string name="festival_dussehra_greeting">Chúc mừng lễ Dussehra</string>
     <string name="festival_diwali_greeting">Chúc mừng lễ Diwali</string>
     <string name="stats_memory">Bộ nhớ %1$d / %2$d MB</string>
@@ -85,16 +85,17 @@
     <string name="wallpaper_none">Không có</string>
     <string name="wallpaper_applied">Đã đổi hình nền</string>
     <string name="wallpaper_theme_default">Theo theme</string>
-    <string name="reorder">Sắp xếp ứng dụng</string>
-    <string name="reorder_hint">Bấm OK để nhấc ứng dụng, phím mũi tên để di chuyển, Back để đặt xuống. Bấm Back lần nữa để xong.</string>
+    <string name="reorder">Sắp xếp vị trí ứng dụng</string>
+    <string name="reorder_hint">Dùng phím mũi tên ◀ ▶ ▲ ▼ để di chuyển vị trí, bấm OK để lưu.</string>
     <string name="reorder_not_saved">Không lưu được thứ tự mới</string>
     <string name="app_library">Thư viện ứng dụng</string>
     <string name="library_empty">Không tìm thấy ứng dụng nào mở được</string>
     <string name="library_on_home">Trên màn hình chính</string>
     <string name="library_add_home">Thêm vào màn hình chính</string>
-    <string name="library_remove_shortcut">Bỏ khỏi màn hình chính</string>
+    <string name="library_remove_shortcut">Ẩn khỏi màn hình chính</string>
     <string name="library_open">Mở</string>
     <string name="library_app_info">Thông tin ứng dụng</string>
+    <string name="uninstall_app">Gỡ cài đặt ứng dụng</string>
     <string name="library_save_failed">Không lưu được lối tắt</string>
     <string name="library_recent">Mới · Thêm vào màn hình chính</string>
     <string name="library_hint_add">Bấm để thêm vào màn hình chính · Giữ để xem tùy chọn</string>
@@ -118,5 +119,5 @@
     <string name="race_countdown_hours">%1$d giờ %2$d phút</string>
     <string name="race_countdown_days">%1$d ngày %2$d giờ</string>
     <string name="last_opened">Mở lần cuối %1$s</string>
-    <string name="tile_move">Di chuyển</string>
+    <string name="tile_move">Di chuyển vị trí</string>
 </resources>

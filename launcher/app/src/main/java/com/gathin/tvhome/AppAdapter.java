@@ -67,6 +67,7 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         /** Hold OK on a tile: the activity shows the tile menu (move, remove from Home, app info). */
         void onTileLongPress(int position, View card);
         void onLibraryUp();
+        float tileAlphaAt(int position);
     }
 
     static final class Entry {
@@ -328,12 +329,16 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         addFavouriteLaunchers(pm, found, tvPackages);
         Set<String> added = LibraryApps.load(ctx);
         Set<String> removed = LibraryApps.loadRemoved(ctx);
-        if (!added.isEmpty()) {
-            Set<String> seen = new HashSet<>(tvPackages);
-            for (ResolveInfo ri : pm.queryIntentActivities(
-                    new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER), 0)) {
-                if (ri.activityInfo != null && added.contains(ri.activityInfo.packageName)
-                        && seen.add(ri.activityInfo.packageName)) found.add(ri);
+        Set<String> seenLaunchers = new HashSet<>(tvPackages);
+        for (ResolveInfo ri : found) {
+            if (ri.activityInfo != null) seenLaunchers.add(ri.activityInfo.packageName);
+        }
+        for (ResolveInfo ri : pm.queryIntentActivities(
+                new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER), 0)) {
+            if (ri.activityInfo == null) continue;
+            String p = ri.activityInfo.packageName;
+            if (!hidden.contains(p) && !removed.contains(p) && seenLaunchers.add(p)) {
+                found.add(ri);
             }
         }
         Map<String, Cards.Card> cardByPkg = new HashMap<>();
@@ -346,8 +351,7 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             if (ri.activityInfo == null) continue;
             String pkg = ri.activityInfo.packageName;
             if (pkg.equals(ctx.getPackageName()) || !ri.activityInfo.exported
-                    || !LibraryApps.visible(tvPackages.contains(pkg), hidden.contains(pkg),
-                            added.contains(pkg) || favourites.contains(pkg), removed.contains(pkg))) continue;
+                    || hidden.contains(pkg) || removed.contains(pkg)) continue;
             ComponentName component = new ComponentName(pkg, ri.activityInfo.name);
             Cards.Card card = cardByPkg.get(pkg);
             if (card != null && !card.component.equals(component)) continue;   // the card stands in for this tile
@@ -393,13 +397,10 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                     new ComponentName(ctx, HomeSettingsActivity.class), null,
                     ctx.getDrawable(R.drawable.ic_home_settings), null, 0));
         }
-        docked = 0;
-        while (docked < fresh.size() && isDocked(fresh.get(docked))) docked++;
-        emptySlots = dockRow && !reordering ? DockSlots.empty(docked, dockSize, fresh.size(), fillDock) : 0;
-        for (int i = 0; i < emptySlots; i++) {
-            fresh.add(docked + i, new Entry(Entry.EMPTY, "", new ComponentName(ctx, "empty-dock-slot-" + i),
-                    null, null, null, 0));
-        }
+        // Always auto-fill the top 5 dock row with the first 5 available apps so uninstalling an app
+        // immediately shifts the next app up into the top 5 bar without leaving empty gaps.
+        docked = Math.min(dockSize, fresh.size());
+        emptySlots = 0;
         items.clear();
         items.addAll(fresh);
         notifyDataSetChanged();
@@ -572,6 +573,7 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         }
         h.card.setVisibility(View.VISIBLE);
         h.card.setFocusable(true);
+        h.itemView.setAlpha(listener != null ? listener.tileAlphaAt(position) : 1f);
         h.name.setText(e.name);
         // The dock has no labels, unless always_show_names asks for them (DockDecoration then makes room in the band).
         // In a single row every tile is the dock's kind: the big title above names it.
@@ -731,9 +733,9 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         return -1;
     }
 
-    /** Dock slots that hold an app: the whole dock unless some slots are empty. */
+    /** Dock slots that hold an app: always up to dockSize (5) as long as enough apps are installed. */
     int dockFilled() {
-        return emptySlots > 0 ? docked : dockSize;
+        return Math.min(dockSize, items.size());
     }
 
     /** A position focus can land on: an empty dock slot gives the last dock app. */
