@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Quản Lý Máy Tính Bảng TQD</string>
+    <string name="a11y_label">Quản Lý Máy Tính Bảng TQD (Kiểm Soát Giờ Xem)</string>
+    <string name="a11y_desc">Giúp Ba theo dõi ứng dụng/video con đang xem trên máy tính bảng, hiển thị lời nhắn nhắc nhở và khóa màn hình khi hết giờ.</string>
+</resources>

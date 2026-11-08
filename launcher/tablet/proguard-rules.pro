@@ -1,0 +1,2 @@
+-keep class com.gathin.tabletguard.** { *; }
+-dontwarn android.**
