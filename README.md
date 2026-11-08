@@ -20,10 +20,10 @@
 
 1. **Giao Diện Màn Hình Chính 5 Icon Thoáng Đãng (`MainActivity.java`)**:
    - Thanh Dock kính mờ chỉ hiển thị đúng **5 ứng dụng chính** (`SmartTube`, `VTV Go`, `MKodi`, `AirPlay&UPnP`, `Aurora Store`).
+   - Toàn bộ 75% không gian phía trên được để trống hoàn toàn (đã gỡ bỏ kệ video trên màn hình chính và dòng chữ tiêu đề nổi) để hình nền danh thắng thế giới và ảnh gia đình hiển thị đẹp nhất.
    - Bấm phím **Xuống (`▼`)** trên điều khiển để mở ngăn kéo chứa các ứng dụng phụ.
-   - Đã loại bỏ hoàn toàn quảng cáo hệ thống và dòng chữ thừa ở chân màn hình.
-2. **Kệ Đề Xuất Video YouTube Trực Tiếp Trên Màn Hình Chính (`YoutubeShelf.java`)**:
-   - Thay thế thanh kênh truyền hình cũ (`U1`) bằng kệ đề xuất video YouTube có ảnh bìa lớn sắc nét, chọn lọc theo 5 chủ đề (**Hoạt hình, Tiếng Anh, Khám phá, Nhạc bé, Gia đình**) hoặc nhập chủ đề tùy ý từ điện thoại; bấm vào phát ngay trên **SmartTube** không quảng cáo.
+2. **Mở Nhanh Video YouTube Cho Bé Từ Điện Thoại (`YoutubeShelf.java`, `WebRemoteServer.java`)**:
+   - Chọn lọc video theo 5 chủ đề (**Hoạt hình, Tiếng Anh, Khám phá, Nhạc bé, Gia đình**) hoặc tìm chủ đề tùy ý ngay trên điện thoại (`https://tv.tqd.me`) để phát trực tiếp lên **SmartTube** không quảng cáo.
 3. **Hình Nền Danh Thắng Thế Giới Tự Đổi & Tải Ảnh Từ Điện Thoại (`WallpaperPlayer.java`, `WebRemoteServer.java`)**:
    - Tích hợp sẵn **8 bức ảnh nhiếp ảnh 16:9 HD** của các danh thắng nổi tiếng thế giới (Vịnh Hạ Long, Núi Phú Sĩ, Dãy Alps Thụy Sĩ, Hồ Moraine Canada, Yosemite Mỹ, Stockholm Thụy Điển, Bắc Cực Quang Abisko) tự động xoay vòng mỗi phút kèm tên địa danh ở góc dưới bên phải.
    - Hỗ trợ **chọn ảnh bất kỳ từ điện thoại làm hình nền Tivi** (`📷 Chọn Ảnh Từ Điện Thoại Làm Hình Nền TV`) và nút **`⏭ Đổi Cảnh Kế Tiếp`** hoạt động tức thì trên cả Wi-Fi nội bộ lẫn 4G/5G (`https://tv.tqd.me`).

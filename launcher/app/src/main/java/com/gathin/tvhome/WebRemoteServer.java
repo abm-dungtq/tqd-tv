@@ -129,6 +129,7 @@ public final class WebRemoteServer {
         }
         ParentalControlManager.init(context, service);
         CloudTunnelClient.ensureRunning(context);
+        ensureXiaomiRemoteServiceRunning(appContext);
         synchronized (LOCK) {
             if (pool == null || pool.isShutdown()) {
                 pool = new ThreadPoolExecutor(
@@ -1069,6 +1070,11 @@ public final class WebRemoteServer {
         boolean sent = false;
         if (miKey != null) {
             sent = sendXiaomiKeyEvent(miKey);
+            if (!sent) {
+                ensureXiaomiRemoteServiceRunning(ctx);
+                try { Thread.sleep(160L); } catch (Throwable ignored) {}
+                sent = sendXiaomiKeyEvent(miKey);
+            }
         }
 
         // 5. Fallbacks if 127.0.0.1:6095 is unreachable
@@ -1082,11 +1088,41 @@ public final class WebRemoteServer {
             if (!sent) {
                 int androidKey = mapToAndroidKeyCode(c);
                 if (androidKey > 0) {
-                    sent = execInputKeyevent(androidKey);
+                    sent = MainActivity.dispatchRemoteKey(androidKey);
+                    if (!sent) {
+                        sent = execInputKeyevent(androidKey);
+                    }
                 }
             }
         }
         return sent ? "{\"ok\":true}" : "{\"ok\":false,\"error\":\"dispatch_failed\"}";
+    }
+
+    private static volatile long lastAirkanStartAttemptMs = 0L;
+
+    /** Ensures Xiaomi's system-signed AirkanHttpService (port 6095 EventInjector) is running. */
+    public static void ensureXiaomiRemoteServiceRunning(Context ctx) {
+        if (ctx == null) return;
+        long now = SystemClock.uptimeMillis();
+        if (now - lastAirkanStartAttemptMs < 4000L) return;
+        lastAirkanStartAttemptMs = now;
+        try {
+            Intent httpSvc = new Intent()
+                    .setComponent(new ComponentName("com.duokan.airkan.tvbox",
+                            "com.duokan.httpserver.service.AirkanHttpService"));
+            ctx.startService(httpSvc);
+        } catch (Throwable ignored) {}
+        try {
+            Intent rcSvc = new Intent()
+                    .setComponent(new ComponentName("com.duokan.airkan.tvbox",
+                            "com.duokan.remotecontroller.service.RCDaemon"));
+            ctx.startService(rcSvc);
+        } catch (Throwable ignored) {}
+        try {
+            Intent bcast = new Intent("com.xiaomi.milink.action.START_SERVICE")
+                    .setPackage("com.duokan.airkan.tvbox");
+            ctx.sendBroadcast(bcast);
+        } catch (Throwable ignored) {}
     }
 
     private static int mapToMediaKeyCode(String code) {
@@ -1949,83 +1985,17 @@ public final class WebRemoteServer {
                 + "  <div id=\"npTime\" class=\"np-time\"></div>\n"
                 + "</div>\n"
                 + "\n"
-                + "<div class=\"card parental\">\n"
-                + "  <div class=\"sec-title\" style=\"color:#fcd34d\">💌 Gửi Cảnh Báo Lên Tivi & Hẹn Giờ Tắt</div>\n"
-                + "  <div id=\"timerBanner\" class=\"timer-banner\"></div>\n"
-                + "  <div class=\"chips\">\n"
-                + "    <div class=\"chip\" onclick=\"setPreset('Ba nhắn: Con xem hết tập này nhé, Tivi sẽ nghỉ sau ít phút nữa ❤️')\">💬 Xem hết tập này nghỉ nhé</div>\n"
-                + "    <div class=\"chip\" onclick=\"setPreset('Đến giờ ăn cơm / đi tắm rồi con gái yêu ơi ❤️')\">🍚 Đến giờ ăn cơm / tắm</div>\n"
-                + "    <div class=\"chip\" onclick=\"setPreset('Muộn rồi, mình tắt Tivi đi ngủ sớm cho khỏe con nhé 🌙')\">🌙 Đến giờ đi ngủ rồi</div>\n"
-                + "    <div class=\"chip\" onclick=\"setPreset('Con ngồi lùi xa màn hình Tivi để bảo vệ mắt nhé 👀')\">👀 Ngồi xa màn hình</div>\n"
-                + "  </div>\n"
-                + "  <input id=\"parentalMsg\" class=\"yt-input\" type=\"text\" placeholder=\"Nhập lời nhắn của Ba hiện lên màn hình Tivi...\" autocomplete=\"off\">\n"
-                + "  <div class=\"t-grid\">\n"
-                + "    <button class=\"t-btn\" onclick=\"parental('timer',3)\">⏱ 3p</button>\n"
-                + "    <button class=\"t-btn\" onclick=\"parental('timer',5)\">⏱ 5p</button>\n"
-                + "    <button class=\"t-btn\" onclick=\"parental('timer',10)\">⏱ 10p</button>\n"
-                + "    <button class=\"t-btn\" onclick=\"parental('timer',15)\">⏱ 15p</button>\n"
-                + "    <button class=\"t-btn\" onclick=\"parental('timer',30)\">⏱ 30p</button>\n"
-                + "  </div>\n"
-                + "  <div class=\"p-actions\">\n"
-                + "    <button class=\"p-btn msg\" onclick=\"parental('message',0)\">📢 Chỉ Hiện Lời Nhắn Lên Tivi (14 giây)</button>\n"
-                + "    <button class=\"p-btn add\" onclick=\"parental('add',5)\">➕ Cộng 5p</button>\n"
-                + "    <button class=\"p-btn lock\" onclick=\"parental('lock_now',0)\">🔒 Tắt & Khóa</button>\n"
-                + "    <button class=\"p-btn unlock\" onclick=\"parental('unlock',0)\">🔓 Mở Khóa</button>\n"
-                + "  </div>\n"
-                + "  <div class=\"sched-row\">\n"
-                + "    <label style=\"font-size:12px;font-weight:700;color:#fde68a;display:flex;align-items:center;gap:6px\">\n"
-                + "      <input id=\"schedEnable\" type=\"checkbox\" onchange=\"saveSchedule()\" style=\"accent-color:#f59e0b;width:16px;height:16px\">\n"
-                + "      🌙 Tự khóa giờ ngủ:\n"
-                + "    </label>\n"
-                + "    <div style=\"display:flex;align-items:center;gap:4px\">\n"
-                + "      <input id=\"schedStart\" class=\"time-inp\" type=\"time\" value=\"21:30\" onchange=\"saveSchedule()\">\n"
-                + "      <span style=\"font-size:11px;color:var(--sub)\">→</span>\n"
-                + "      <input id=\"schedEnd\" class=\"time-inp\" type=\"time\" value=\"06:30\" onchange=\"saveSchedule()\">\n"
-                + "    </div>\n"
-                + "  </div>\n"
-                + "</div>\n"
-                + "\n"
-                + "<div class=\"card\">\n"
-                + "  <div class=\"np-head\">\n"
-                + "    <div class=\"sec-title\" style=\"margin:0;color:#fca5a5\">▶️ Đề Xuất Video YouTube Trên Màn Hình TV</div>\n"
-                + "    <div id=\"ytTopicBadge\" class=\"status-pill\" style=\"font-size:10.5px\">🧸 Hoạt hình</div>\n"
-                + "  </div>\n"
-                + "  <div class=\"chips\" id=\"ytTopicChips\">\n"
-                + "    <div class=\"chip active\" data-topic=\"kids\" onclick=\"setYtTopic('kids')\">🧸 Hoạt hình</div>\n"
-                + "    <div class=\"chip\" data-topic=\"english\" onclick=\"setYtTopic('english')\">🇬🇧 Tiếng Anh</div>\n"
-                + "    <div class=\"chip\" data-topic=\"science\" onclick=\"setYtTopic('science')\">🔬 Khám phá</div>\n"
-                + "    <div class=\"chip\" data-topic=\"music\" onclick=\"setYtTopic('music')\">🎵 Nhạc bé</div>\n"
-                + "    <div class=\"chip\" data-topic=\"family\" onclick=\"setYtTopic('family')\">🔥 Gia đình</div>\n"
-                + "  </div>\n"
-                + "  <div style=\"display:flex;gap:6px;margin-top:4px\">\n"
-                + "    <input id=\"ytCustomTopic\" class=\"yt-input\" style=\"padding:8px 11px;font-size:12.5px\" type=\"text\" placeholder=\"Đổi chủ đề đề xuất trên màn hình TV (VD: Doraemon, Peppa Pig)...\">\n"
-                + "    <button class=\"yt-send\" style=\"white-space:nowrap;padding:8px 12px;font-size:12px\" onclick=\"applyCustomYtTopic()\">Đổi Kệ TV</button>\n"
-                + "  </div>\n"
-                + "  <div id=\"ytShelfCards\" class=\"yt-cards\"></div>\n"
-                + "</div>\n"
-                + "\n"
-                + "<div class=\"card\">\n"
-                + "  <div class=\"sec-title\">Nhập liệu Tiếng Việt & Tìm kiếm nhanh</div>\n"
-                + "  <div class=\"yt-box\">\n"
-                + "    <input id=\"ytInput\" class=\"yt-input\" type=\"text\" placeholder=\"Nhập tiếng Việt hoặc dán link YouTube...\" autocomplete=\"off\">\n"
-                + "    <div class=\"yt-actions\">\n"
-                + "      <button class=\"yt-send\" type=\"button\" onclick=\"sendYt()\">▶ Phát / Tìm SmartTube</button>\n"
-                + "      <button class=\"txt-send\" type=\"button\" onclick=\"sendTextToTv()\">⌨ Gửi chữ vào ô nhập TV</button>\n"
-                + "    </div>\n"
-                + "  </div>\n"
-                + "</div>\n"
-                + "\n"
                 + "<div class=\"card\">\n"
                 + "  <div class=\"mode-tabs\">\n"
-                + "    <div id=\"tabDpad\" class=\"tab active\" onclick=\"setMode('dpad')\">Phím Điều Hướng (Giữ để lặp)</div>\n"
+                + "    <div id=\"tabDpad\" class=\"tab active\" onclick=\"setMode('dpad')\">Phím Điều Hướng (Chạm / Giữ)</div>\n"
                 + "    <div id=\"tabTouch\" class=\"tab\" onclick=\"setMode('touch')\">Bàn Rê Cảm Ứng</div>\n"
                 + "  </div>\n"
                 + "  <div id=\"dpadWrap\" class=\"dpad-wrap\">\n"
                 + "    <div class=\"dpad\">\n"
-                + "      <button id=\"btnUp\" class=\"d-btn d-up\">▲</button>\n"
-                + "      <button id=\"btnDown\" class=\"d-btn d-down\">▼</button>\n"
-                + "      <button id=\"btnLeft\" class=\"d-btn d-left\">◀</button>\n"
-                + "      <button id=\"btnRight\" class=\"d-btn d-right\">▶</button>\n"
+                + "      <button id=\"btnUp\" class=\"d-btn d-up\" onclick=\"tapKey('up')\">▲</button>\n"
+                + "      <button id=\"btnDown\" class=\"d-btn d-down\" onclick=\"tapKey('down')\">▼</button>\n"
+                + "      <button id=\"btnLeft\" class=\"d-btn d-left\" onclick=\"tapKey('left')\">◀</button>\n"
+                + "      <button id=\"btnRight\" class=\"d-btn d-right\" onclick=\"tapKey('right')\">▶</button>\n"
                 + "      <button class=\"d-btn d-ok\" onclick=\"key('enter')\">OK</button>\n"
                 + "    </div>\n"
                 + "  </div>\n"
@@ -2035,16 +2005,15 @@ public final class WebRemoteServer {
                 + "  </div>\n"
                 + "</div>\n"
                 + "\n"
-                + "<div class=\"row-btns\" style=\"grid-template-columns:repeat(4,1fr)\">\n"
+                + "<div class=\"row-btns\">\n"
                 + "  <button class=\"r-btn\" onclick=\"key('back')\"><span>↩</span>Quay lại</button>\n"
                 + "  <button class=\"r-btn\" onclick=\"key('home')\"><span>⌂</span>Trang chủ</button>\n"
-                + "  <button class=\"r-btn\" style=\"border-color:rgba(59,130,246,0.45);background:rgba(59,130,246,0.18)\" onclick=\"key('voice')\"><span>🎤</span>Giọng nói</button>\n"
                 + "  <button class=\"r-btn\" onclick=\"key('menu')\"><span>☰</span>Menu</button>\n"
                 + "</div>\n"
                 + "<div class=\"row-btns\">\n"
-                + "  <button id=\"btnVolDown\" class=\"r-btn\"><span>🔉</span>Giảm âm</button>\n"
+                + "  <button id=\"btnVolDown\" class=\"r-btn\" onclick=\"tapKey('voldown')\"><span>🔉</span>Giảm âm</button>\n"
                 + "  <button class=\"r-btn\" onclick=\"key('mute')\"><span>🔇</span>Tắt tiếng</button>\n"
-                + "  <button id=\"btnVolUp\" class=\"r-btn\"><span>🔊</span>Tăng âm</button>\n"
+                + "  <button id=\"btnVolUp\" class=\"r-btn\" onclick=\"tapKey('volup')\"><span>🔊</span>Tăng âm</button>\n"
                 + "</div>\n"
                 + "\n"
                 + "<div class=\"card\">\n"
@@ -2108,6 +2077,72 @@ public final class WebRemoteServer {
                 + "</div>\n"
                 + "\n"
                 + "<div class=\"card\">\n"
+                + "  <div class=\"sec-title\">Nhập liệu Tiếng Việt & Tìm kiếm nhanh</div>\n"
+                + "  <div class=\"yt-box\">\n"
+                + "    <input id=\"ytInput\" class=\"yt-input\" type=\"text\" placeholder=\"Nhập tiếng Việt hoặc dán link YouTube...\" autocomplete=\"off\">\n"
+                + "    <div class=\"yt-actions\">\n"
+                + "      <button class=\"yt-send\" type=\"button\" onclick=\"sendYt()\">▶ Phát / Tìm SmartTube</button>\n"
+                + "      <button class=\"txt-send\" type=\"button\" onclick=\"sendTextToTv()\">⌨ Gửi chữ vào ô nhập TV</button>\n"
+                + "    </div>\n"
+                + "  </div>\n"
+                + "</div>\n"
+                + "\n"
+                + "<div class=\"card parental\">\n"
+                + "  <div class=\"sec-title\" style=\"color:#fcd34d\">💌 Gửi Cảnh Báo Lên Tivi & Hẹn Giờ Tắt</div>\n"
+                + "  <div id=\"timerBanner\" class=\"timer-banner\"></div>\n"
+                + "  <div class=\"chips\">\n"
+                + "    <div class=\"chip\" onclick=\"setPreset('Ba nhắn: Con xem hết tập này nhé, Tivi sẽ nghỉ sau ít phút nữa ❤️')\">💬 Xem hết tập này nghỉ nhé</div>\n"
+                + "    <div class=\"chip\" onclick=\"setPreset('Đến giờ ăn cơm / đi tắm rồi con gái yêu ơi ❤️')\">🍚 Đến giờ ăn cơm / tắm</div>\n"
+                + "    <div class=\"chip\" onclick=\"setPreset('Muộn rồi, mình tắt Tivi đi ngủ sớm cho khỏe con nhé 🌙')\">🌙 Đến giờ đi ngủ rồi</div>\n"
+                + "    <div class=\"chip\" onclick=\"setPreset('Con ngồi lùi xa màn hình Tivi để bảo vệ mắt nhé 👀')\">👀 Ngồi xa màn hình</div>\n"
+                + "  </div>\n"
+                + "  <input id=\"parentalMsg\" class=\"yt-input\" type=\"text\" placeholder=\"Nhập lời nhắn của Ba hiện lên màn hình Tivi...\" autocomplete=\"off\">\n"
+                + "  <div class=\"t-grid\">\n"
+                + "    <button class=\"t-btn\" onclick=\"parental('timer',3)\">⏱ 3p</button>\n"
+                + "    <button class=\"t-btn\" onclick=\"parental('timer',5)\">⏱ 5p</button>\n"
+                + "    <button class=\"t-btn\" onclick=\"parental('timer',10)\">⏱ 10p</button>\n"
+                + "    <button class=\"t-btn\" onclick=\"parental('timer',15)\">⏱ 15p</button>\n"
+                + "    <button class=\"t-btn\" onclick=\"parental('timer',30)\">⏱ 30p</button>\n"
+                + "  </div>\n"
+                + "  <div class=\"p-actions\">\n"
+                + "    <button class=\"p-btn msg\" onclick=\"parental('message',0)\">📢 Chỉ Hiện Lời Nhắn Lên Tivi (14 giây)</button>\n"
+                + "    <button class=\"p-btn add\" onclick=\"parental('add',5)\">➕ Cộng 5p</button>\n"
+                + "    <button class=\"p-btn lock\" onclick=\"parental('lock_now',0)\">🔒 Tắt & Khóa</button>\n"
+                + "    <button class=\"p-btn unlock\" onclick=\"parental('unlock',0)\">🔓 Mở Khóa</button>\n"
+                + "  </div>\n"
+                + "  <div class=\"sched-row\">\n"
+                + "    <label style=\"font-size:12px;font-weight:700;color:#fde68a;display:flex;align-items:center;gap:6px\">\n"
+                + "      <input id=\"schedEnable\" type=\"checkbox\" onchange=\"saveSchedule()\" style=\"accent-color:#f59e0b;width:16px;height:16px\">\n"
+                + "      🌙 Tự khóa giờ ngủ:\n"
+                + "    </label>\n"
+                + "    <div style=\"display:flex;align-items:center;gap:4px\">\n"
+                + "      <input id=\"schedStart\" class=\"time-inp\" type=\"time\" value=\"21:30\" onchange=\"saveSchedule()\">\n"
+                + "      <span style=\"font-size:11px;color:var(--sub)\">→</span>\n"
+                + "      <input id=\"schedEnd\" class=\"time-inp\" type=\"time\" value=\"06:30\" onchange=\"saveSchedule()\">\n"
+                + "    </div>\n"
+                + "  </div>\n"
+                + "</div>\n"
+                + "\n"
+                + "<div class=\"card\">\n"
+                + "  <div class=\"np-head\">\n"
+                + "    <div class=\"sec-title\" style=\"margin:0;color:#fca5a5\">▶️ Mở Nhanh Video YouTube Cho Bé Trên TV</div>\n"
+                + "    <div id=\"ytTopicBadge\" class=\"status-pill\" style=\"font-size:10.5px\">🧸 Hoạt hình</div>\n"
+                + "  </div>\n"
+                + "  <div class=\"chips\" id=\"ytTopicChips\">\n"
+                + "    <div class=\"chip active\" data-topic=\"kids\" onclick=\"setYtTopic('kids')\">🧸 Hoạt hình</div>\n"
+                + "    <div class=\"chip\" data-topic=\"english\" onclick=\"setYtTopic('english')\">🇬🇧 Tiếng Anh</div>\n"
+                + "    <div class=\"chip\" data-topic=\"science\" onclick=\"setYtTopic('science')\">🔬 Khám phá</div>\n"
+                + "    <div class=\"chip\" data-topic=\"music\" onclick=\"setYtTopic('music')\">🎵 Nhạc bé</div>\n"
+                + "    <div class=\"chip\" data-topic=\"family\" onclick=\"setYtTopic('family')\">🔥 Gia đình</div>\n"
+                + "  </div>\n"
+                + "  <div style=\"display:flex;gap:6px;margin-top:4px\">\n"
+                + "    <input id=\"ytCustomTopic\" class=\"yt-input\" style=\"padding:8px 11px;font-size:12.5px\" type=\"text\" placeholder=\"Tìm chủ đề video cho bé (VD: Doraemon, Peppa Pig)...\">\n"
+                + "    <button class=\"yt-send\" style=\"white-space:nowrap;padding:8px 12px;font-size:12px\" onclick=\"applyCustomYtTopic()\">Tìm Video</button>\n"
+                + "  </div>\n"
+                + "  <div id=\"ytShelfCards\" class=\"yt-cards\"></div>\n"
+                + "</div>\n"
+                + "\n"
+                + "<div class=\"card\">\n"
                 + "  <div class=\"sec-title\">🧹 Dọn Cache Tăng Tốc & Bộ Nhớ Tivi</div>\n"
                 + "  <div class=\"meter-row\">\n"
                 + "    <div class=\"meter-box\">\n"
@@ -2142,8 +2177,10 @@ public final class WebRemoteServer {
                 + "let lanReachable=IS_LAN;\n"
                 + "let cloudConnected=false;\n"
                 + "let wsMqtt=null;\n"
+                + "let wsConnecting=false;\n"
                 + "let wsBrokerIdx=0;\n"
                 + "let lastRenderedSig='';\n"
+                + "const pendingCloudQueue=[];\n"
                 + "const WS_BROKERS=['wss://broker.emqx.io:8084/mqtt'];\n"
                 + "const urlPin=new URLSearchParams(location.search).get('pin');\n"
                 + "if(urlPin)localStorage.setItem('mitv_pin',urlPin.trim());\n"
@@ -2175,13 +2212,23 @@ public final class WebRemoteServer {
                 + "function mqttConnectPkt(cid){const rem=[...encStr('MQTT'),4,2,0,30,...encStr(cid)];return new Uint8Array([0x10,...encLen(rem.length),...rem]);}\n"
                 + "function mqttSubPkt(id,top){const rem=[(id>>8)&255,id&255,...encStr(top),0];return new Uint8Array([0x82,...encLen(rem.length),...rem]);}\n"
                 + "function mqttPubPkt(top,str){const pl=new TextEncoder().encode(str);const rem=[...encStr(top),...pl];return new Uint8Array([0x30,...encLen(rem.length),...rem]);}\n"
+                + "function flushCloudQueue(){\n"
+                + "  if(!wsMqtt||wsMqtt.readyState!==1||!cloudConnected)return;\n"
+                + "  while(pendingCloudQueue.length>0){\n"
+                + "    const item=pendingCloudQueue.shift();\n"
+                + "    try{wsMqtt.send(mqttPubPkt(TOPIC_CMD,JSON.stringify(item)));}catch(e){break;}\n"
+                + "  }\n"
+                + "}\n"
                 + "function connectCloudMqtt(){\n"
+                + "  if(wsConnecting||(wsMqtt&&(wsMqtt.readyState===0||wsMqtt.readyState===1)))return;\n"
+                + "  wsConnecting=true;\n"
                 + "  try{\n"
                 + "    const url=WS_BROKERS[wsBrokerIdx%WS_BROKERS.length];wsBrokerIdx++;\n"
                 + "    const ws=new WebSocket(url,'mqtt');\n"
                 + "    ws.binaryType='arraybuffer';\n"
                 + "    wsMqtt=ws;\n"
                 + "    ws.onopen=()=>{\n"
+                + "      wsConnecting=false;\n"
                 + "      ws.send(mqttConnectPkt('web_'+Math.floor(Math.random()*999999)));\n"
                 + "    };\n"
                 + "    ws.onmessage=ev=>{\n"
@@ -2191,6 +2238,7 @@ public final class WebRemoteServer {
                 + "      if(type===2){\n"
                 + "        cloudConnected=true;updateConnBadge();\n"
                 + "        ws.send(mqttSubPkt(1,TOPIC_STATE));\n"
+                + "        flushCloudQueue();\n"
                 + "        sendCloudCmd({type:'ping'});\n"
                 + "      }else if(type===3){\n"
                 + "        let idx=1,mul=1,rLen=0;\n"
@@ -2205,15 +2253,28 @@ public final class WebRemoteServer {
                 + "        }\n"
                 + "      }\n"
                 + "    };\n"
-                + "    ws.onclose=()=>{cloudConnected=false;updateConnBadge();setTimeout(connectCloudMqtt,3000);};\n"
-                + "    ws.onerror=()=>{try{ws.close();}catch(e){}};\n"
-                + "  }catch(e){setTimeout(connectCloudMqtt,4000);}\n"
+                + "    ws.onclose=()=>{wsConnecting=false;cloudConnected=false;updateConnBadge();setTimeout(connectCloudMqtt,1800);};\n"
+                + "    ws.onerror=()=>{wsConnecting=false;try{ws.close();}catch(e){}};\n"
+                + "  }catch(e){wsConnecting=false;setTimeout(connectCloudMqtt,2500);}\n"
                 + "}\n"
-                + "setInterval(()=>{if(wsMqtt&&wsMqtt.readyState===1){try{wsMqtt.send(new Uint8Array([0xC0,0x00]));}catch(e){}}},15000);\n"
+                + "function ensureCloudConnected(){\n"
+                + "  if(!wsMqtt||wsMqtt.readyState>1){cloudConnected=false;connectCloudMqtt();}\n"
+                + "}\n"
+                + "document.addEventListener('visibilitychange',()=>{if(!document.hidden){ensureCloudConnected();poll();}});\n"
+                + "window.addEventListener('pageshow',()=>{ensureCloudConnected();poll();});\n"
+                + "window.addEventListener('focus',()=>{ensureCloudConnected();poll();});\n"
+                + "setInterval(()=>{if(wsMqtt&&wsMqtt.readyState===1){try{wsMqtt.send(new Uint8Array([0xC0,0x00]));}catch(e){}}else{ensureCloudConnected();}},12000);\n"
                 + "function sendCloudCmd(obj){\n"
-                + "  if(!wsMqtt||wsMqtt.readyState!==1)return false;\n"
                 + "  obj.pin=getPin();\n"
-                + "  try{wsMqtt.send(mqttPubPkt(TOPIC_CMD,JSON.stringify(obj)));return true;}catch(e){return false;}\n"
+                + "  if(wsMqtt&&wsMqtt.readyState===1&&cloudConnected){\n"
+                + "    try{wsMqtt.send(mqttPubPkt(TOPIC_CMD,JSON.stringify(obj)));return true;}catch(e){}\n"
+                + "  }\n"
+                + "  if(obj.type!=='ping'){\n"
+                + "    if(pendingCloudQueue.length>=16)pendingCloudQueue.shift();\n"
+                + "    pendingCloudQueue.push(obj);\n"
+                + "  }\n"
+                + "  ensureCloudConnected();\n"
+                + "  return false;\n"
                 + "}\n"
                 + "function updateConnBadge(){\n"
                 + "  const dot=document.getElementById('dot');\n"
@@ -2549,6 +2610,11 @@ public final class WebRemoteServer {
                 + "  document.getElementById('dpadWrap').style.display=d?'flex':'none';\n"
                 + "  document.getElementById('touchWrap').style.display=d?'none':'flex';\n"
                 + "}\n"
+                + "const lastHoldTs={};\n"
+                + "function tapKey(code){\n"
+                + "  if(Date.now()-(lastHoldTs[code]||0)<420)return;\n"
+                + "  key(code);\n"
+                + "}\n"
                 + "function bindHold(id,code){\n"
                 + "  const el=document.getElementById(id);\n"
                 + "  if(!el)return;\n"
@@ -2562,8 +2628,9 @@ public final class WebRemoteServer {
                 + "    if(e.cancelable)e.preventDefault();\n"
                 + "    stop();\n"
                 + "    active=true;\n"
+                + "    lastHoldTs[code]=Date.now();\n"
                 + "    key(code);\n"
-                + "    t1=setTimeout(()=>{if(active)t2=setInterval(()=>{if(active)key(code);},140);},320);\n"
+                + "    t1=setTimeout(()=>{if(active)t2=setInterval(()=>{if(active){lastHoldTs[code]=Date.now();key(code);}},140);},320);\n"
                 + "  };\n"
                 + "  el.addEventListener('touchstart',start,{passive:false});\n"
                 + "  el.addEventListener('touchend',stop);\n"

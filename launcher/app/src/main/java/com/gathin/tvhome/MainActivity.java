@@ -172,6 +172,21 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         }
         return "";
     }
+
+    public static boolean dispatchRemoteKey(final int androidKeyCode) {
+        final MainActivity act = activeHomeRef.get();
+        if (act == null || !act.started || act.stopped || act.isFinishing() || act.isDestroyed()) {
+            return false;
+        }
+        act.handler.post(() -> {
+            if (act.started && !act.stopped && !act.isFinishing() && !act.isDestroyed()) {
+                long now = SystemClock.uptimeMillis();
+                act.dispatchKeyEvent(new KeyEvent(now, now, KeyEvent.ACTION_DOWN, androidKeyCode, 0));
+                act.dispatchKeyEvent(new KeyEvent(now, now, KeyEvent.ACTION_UP, androidKeyCode, 0));
+            }
+        });
+        return true;
+    }
     private WallpaperPlayer wallpaperPlayer;
     private GlassView glass;
     private View ambient;
@@ -896,31 +911,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         }
 
         activeHomeRef = new java.lang.ref.WeakReference<>(this);
-        youtubeShelf = new YoutubeShelf(this, new YoutubeShelf.NavigationHost() {
-            @Override
-            public void onNavigateUpFromShelf() {
-                firstTopButton().requestFocus();
-            }
-
-            @Override
-            public void onNavigateDownFromShelf() {
-                focusTile(singleRow ? lastFocused : lastFocused % COLUMNS);
-            }
-
-            @Override
-            public void onShelfItemFocused() {
-                setDrawerExpanded(false);
-                hideGlass();
-                hideHero();
-                WebRemoteServer.setCornerQrVisible(root, openPopup == null);
-            }
-        });
-        FrameLayout.LayoutParams ytLp = new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP);
-        ytLp.leftMargin = Math.round(56 * density);
-        ytLp.rightMargin = Math.round(56 * density);
-        ytLp.topMargin = Math.round(146 * density);
-        root.addView(youtubeShelf.getView(), ytLp);
+        // YouTube shelf removed from main Home screen so the wallpaper has maximum open space.
+        youtubeShelf = null;
 
         drawerHintView = new TextView(this);
         drawerHintView.setText("▼ Bấm phím Xuống để xem các ứng dụng khác");
@@ -1951,12 +1943,11 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         WebRemoteServer.setCornerQrVisible(root, openPopup == null);
         String label = adapter.labelAt(position);
         int color = adapter.ambientColorAt(position);
-        if (youtubeShelf != null) {
-            youtubeShelf.getView().setVisibility(View.VISIBLE);
-            youtubeShelf.setFocusedDockLabel(label);
+        if (!cinematic) {
+            // Keep the upper 75% of the screen completely open so the wallpaper shines unobstructed
+            // (dock tiles already show their app names underneath).
             hero.animate().cancel();
             hero.setAlpha(0f);
-            if (cinematic && heroArtAlpha > 0f) showHeroArt(position);
             if (ambientGlow) {
                 setAmbient(color);
                 ambient.animate().alpha(1f).setDuration(400).start();

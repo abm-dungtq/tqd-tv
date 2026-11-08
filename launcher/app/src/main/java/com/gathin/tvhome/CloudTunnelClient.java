@@ -199,10 +199,6 @@ public final class CloudTunnelClient {
         if (rawJson == null || rawJson.isEmpty()) return;
         try {
             JSONObject obj = new JSONObject(rawJson);
-            String pin = obj.optString("pin", "");
-            if (!ParentalControlManager.verifyPin(appContext, pin)) {
-                return;
-            }
             String type = obj.optString("type", "");
             if ("ping".equals(type) || "status".equals(type)) {
                 publishCurrentStateNow();
